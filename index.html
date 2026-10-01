@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#f7f7f5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Pinpoint">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Pinpoint</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e8e8e5;--accent:#176b51}
+*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-height:100vh;padding-bottom:90px}.top{padding:calc(14px + env(safe-area-inset-top)) 18px 10px;display:flex;justify-content:space-between;align-items:center}
+.brand{font-size:27px;font-weight:800;letter-spacing:-1px}.pill{border:0;background:#fff;border-radius:999px;padding:10px 14px;font-weight:650;box-shadow:0 1px 8px #0001}
+#map{height:56vh;min-height:390px;border-radius:24px;margin:0 12px;overflow:hidden;background:#ddd}
+.filters{display:flex;gap:8px;overflow:auto;padding:12px 14px 5px;scrollbar-width:none}.filters::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 12px}.chip.on{background:#171717;color:#fff;border-color:#171717}
+.section{padding:16px}.section h2{font-size:20px;margin:0 0 12px}.empty{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;color:var(--muted);text-align:center}
+.cards{display:grid;gap:10px}.place{display:grid;grid-template-columns:76px 1fr auto;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:18px;padding:9px}
+.thumb{width:76px;height:76px;border-radius:13px;background:#ecece8;object-fit:cover;display:grid;place-items:center;font-size:28px}.place h3{margin:0 0 4px;font-size:16px}.meta{font-size:13px;color:var(--muted)}.stars{font-size:13px;margin-top:5px}
+.nav{position:fixed;z-index:1000;bottom:0;left:50%;transform:translateX(-50%);width:min(720px,100%);height:calc(68px + env(safe-area-inset-bottom));padding:8px 14px env(safe-area-inset-bottom);background:#fffffff2;backdrop-filter:blur(18px);border-top:1px solid #ddd;display:grid;grid-template-columns:1fr 1fr 1fr}
+.nav button{border:0;background:none;font-size:12px;font-weight:650;color:#666}.nav .add{width:48px;height:48px;border-radius:50%;background:#171717;color:white;font-size:28px;margin:auto}
+.sheet{position:fixed;z-index:2000;inset:0;background:#0005;display:none;align-items:flex-end}.sheet.open{display:flex}.panel{width:min(720px,100%);margin:auto;background:var(--bg);border-radius:26px 26px 0 0;padding:16px 18px calc(20px + env(safe-area-inset-bottom));max-height:91vh;overflow:auto}
+.handle{width:42px;height:5px;border-radius:5px;background:#ccc;margin:0 auto 14px}.row{display:flex;gap:10px}.field{margin:12px 0}.field label{display:block;font-size:13px;font-weight:700;margin:0 0 6px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px;font-size:16px}.field textarea{min-height:82px;resize:vertical}
+.primary{width:100%;border:0;border-radius:15px;background:var(--accent);color:#fff;padding:14px;font-weight:750;font-size:16px}.secondary{border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px 14px}
+.coords{font-size:12px;color:var(--muted);margin-top:6px}.photoPreview{width:100%;max-height:180px;object-fit:cover;border-radius:14px;display:none;margin-top:8px}
+.rate{display:flex;gap:5px}.rate button{border:0;background:none;font-size:30px;padding:1px;color:#c9c9c4}.rate button.on{color:#efad20}
+.crosshair{position:absolute;z-index:500;left:50%;top:50%;transform:translate(-50%,-100%);font-size:34px;pointer-events:none;display:none;text-shadow:0 2px 5px #fff}.adding .crosshair{display:block}
+.mapwrap{position:relative}.hint{display:none;position:absolute;z-index:600;bottom:14px;left:50%;transform:translateX(-50%);background:#171717;color:white;padding:9px 12px;border-radius:999px;font-size:12px;white-space:nowrap}.adding .hint{display:block}
+@media(min-width:700px){#map{height:520px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top"><div><div class="brand">Pinpoint</div><div class="meta">Your world, remembered.</div></div><button class="pill" id="count">0 places</button></header>
+  <div class="filters" id="filters"></div>
+  <div class="mapwrap" id="mapwrap"><div id="map"></div><div class="crosshair">📍</div><div class="hint">Move the map to position your pin</div></div>
+  <section class="section"><h2>My places</h2><div id="places" class="cards"></div></section>
+</div>
+
+<nav class="nav">
+  <button type="button" id="mapBtn">⌖<br>Map</button>
+  <button type="button" class="add" id="addBtn" aria-label="Add place">+</button>
+  <button type="button" id="placesBtn">♡<br>Places</button>
+</nav>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true">
+ <div class="panel">
+  <div class="handle"></div>
+  <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Add a place</h2><button class="secondary" id="closeBtn">Cancel</button></div>
+  <form id="form">
+    <div class="field"><label for="name">Place name</label><input id="name" required maxlength="80" placeholder="e.g. Pasjača Beach"></div>
+    <div class="row">
+      <div class="field" style="flex:1"><label for="category">Type</label><select id="category"></select></div>
+      <div class="field" style="flex:1"><label for="status">Status</label><select id="status"><option>Visited</option><option>Want to visit</option></select></div>
+    </div>
+    <div class="field"><label>Rating</label><div class="rate" id="rate"></div></div>
+    <div class="field"><label for="photo">Photo</label><input id="photo" type="file" accept="image/*"><img id="photoPreview" class="photoPreview" alt="Selected photo"></div>
+    <div class="field"><label for="notes">Notes</label><textarea id="notes" maxlength="1000" placeholder="What made this place worth remembering?"></textarea></div>
+    <div class="field"><label>Location</label><div class="coords" id="coords"></div><button type="button" class="secondary" id="reposition">Reposition on map</button></div>
+    <button class="primary" type="submit">Save place</button>
+  </form>
+ </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const CATS=[
+ {name:"Beach",emoji:"🏖️"},{name:"Viewpoint",emoji:"⛰️"},{name:"Hike",emoji:"🥾"},
+ {name:"Restaurant",emoji:"🍴"},{name:"Attraction",emoji:"🏛️"},{name:"Accommodation",emoji:"🛏️"},{name:"Other",emoji:"📍"}
+];
+let places=JSON.parse(localStorage.getItem("pinpoint-places")||"[]"), filter="All", rating=5, draftPhoto="";
+const map=L.map("map",{zoomControl:false,worldCopyJump:true}).setView([25,10],2);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+L.control.zoom({position:"topright"}).addTo(map);
+const markers=L.layerGroup().addTo(map);
+const $=id=>document.getElementById(id);
+function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function emoji(cat){return (CATS.find(c=>c.name===cat)||CATS.at(-1)).emoji}
+function save(){localStorage.setItem("pinpoint-places",JSON.stringify(places));render()}
+function renderFilters(){
+ $("filters").innerHTML=["All",...CATS.map(c=>c.name)].map(x=>`<button class="chip ${filter===x?"on":""}" data-filter="${x}">${x==="All"?"All":emoji(x)+" "+x}</button>`).join("");
+ document.querySelectorAll("[data-filter]").forEach(b=>b.addEventListener("click",()=>{filter=b.dataset.filter;render()}));
+}
+function render(){
+ renderFilters(); markers.clearLayers();
+ const shown=places.filter(p=>filter==="All"||p.category===filter);
+ $("count").textContent=places.length+" "+(places.length===1?"place":"places");
+ shown.forEach(p=>{
+   const icon=L.divIcon({html:`<div style="font-size:26px;filter:drop-shadow(0 2px 2px #fff)">${emoji(p.category)}</div>`,className:"",iconSize:[32,32],iconAnchor:[16,16]});
+   L.marker([p.lat,p.lng],{icon}).addTo(markers).bindPopup(`<b>${esc(p.name)}</b><br>${emoji(p.category)} ${esc(p.category)} · ${"★".repeat(p.rating)}${"☆".repeat(5-p.rating)}`);
+ });
+ $("places").innerHTML=shown.length?shown.map(p=>`<article class="place" data-id="${p.id}">
+   ${p.photo?`<img class="thumb" src="${p.photo}" alt="">`:`<div class="thumb">${emoji(p.category)}</div>`}
+   <div><h3>${esc(p.name)}</h3><div class="meta">${emoji(p.category)} ${esc(p.category)} · ${esc(p.status)}</div><div class="stars">${"★".repeat(p.rating)}${"☆".repeat(5-p.rating)}</div></div>
+   <button class="secondary del" data-del="${p.id}" aria-label="Delete ${esc(p.name)}">×</button></article>`).join(""):`<div class="empty">No places here yet.<br>Tap <b>+</b> to add your first memory.</div>`;
+ document.querySelectorAll("[data-id]").forEach(el=>el.addEventListener("click",e=>{if(e.target.closest(".del"))return;const p=places.find(x=>x.id===el.dataset.id);map.setView([p.lat,p.lng],12);window.scrollTo({top:0,behavior:"smooth"})}));
+ document.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{if(confirm("Delete this place?")){places=places.filter(p=>p.id!==b.dataset.del);save()}}));
+}
+function renderRate(){ $("rate").innerHTML=[1,2,3,4,5].map(n=>`<button type="button" class="${n<=rating?"on":""}" data-rate="${n}">★</button>`).join("");document.querySelectorAll("[data-rate]").forEach(b=>b.addEventListener("click",()=>{rating=+b.dataset.rate;renderRate()}))}
+function updateCoords(){const c=map.getCenter();$("coords").textContent=`${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`}
+function beginAdd(){ $("mapwrap").classList.add("adding"); updateCoords(); window.scrollTo({top:0,behavior:"smooth"}); setTimeout(()=>{$("sheet").classList.add("open");updateCoords()},350)}
+$("addBtn").addEventListener("click",beginAdd);
+$("closeBtn").addEventListener("click",()=>{$("sheet").classList.remove("open");$("mapwrap").classList.remove("adding")});
+$("reposition").addEventListener("click",()=>{$("sheet").classList.remove("open");$("mapwrap").classList.add("adding");updateCoords();setTimeout(()=>{if(confirm("Pin positioned? Tap OK to continue.")){$("sheet").classList.add("open");updateCoords()}},300)});
+map.on("moveend",()=>{if($("mapwrap").classList.contains("adding"))updateCoords()});
+$("photo").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return; if(f.size>4*1024*1024){alert("For this prototype, choose a photo under 4 MB.");e.target.value="";return} const r=new FileReader();r.onload=()=>{draftPhoto=r.result;$("photoPreview").src=draftPhoto;$("photoPreview").style.display="block"};r.readAsDataURL(f)});
+$("form").addEventListener("submit",e=>{e.preventDefault();const c=map.getCenter();places.unshift({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,photo:draftPhoto,created:new Date().toISOString()});try{save()}catch(err){places.shift();alert("Your browser storage is full. Try a smaller photo.");return}$("form").reset();draftPhoto="";$("photoPreview").style.display="none";rating=5;renderRate();$("sheet").classList.remove("open");$("mapwrap").classList.remove("adding");});
+$("mapBtn").addEventListener("click",()=>window.scrollTo({top:0,behavior:"smooth"}));$("placesBtn").addEventListener("click",()=>document.querySelector(".section").scrollIntoView({behavior:"smooth"}));
+$("category").innerHTML=CATS.map(c=>`<option value="${c.name}">${c.emoji} ${c.name}</option>`).join("");
+renderRate();render();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
+</script>
+</body>
+</html>
