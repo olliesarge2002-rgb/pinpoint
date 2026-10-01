@@ -11,109 +11,86 @@
 <title>Pinpoint</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-:root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e8e8e5;--accent:#176b51}
-*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
-button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-height:100vh;padding-bottom:90px}.top{padding:calc(14px + env(safe-area-inset-top)) 18px 10px;display:flex;justify-content:space-between;align-items:center}
-.brand{font-size:27px;font-weight:800;letter-spacing:-1px}.pill{border:0;background:#fff;border-radius:999px;padding:10px 14px;font-weight:650;box-shadow:0 1px 8px #0001}
-#map{height:56vh;min-height:390px;border-radius:24px;margin:0 12px;overflow:hidden;background:#ddd}
-.filters{display:flex;gap:8px;overflow:auto;padding:12px 14px 5px;scrollbar-width:none}.filters::-webkit-scrollbar{display:none}
-.chip{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 12px}.chip.on{background:#171717;color:#fff;border-color:#171717}
-.section{padding:16px}.section h2{font-size:20px;margin:0 0 12px}.empty{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;color:var(--muted);text-align:center}
-.cards{display:grid;gap:10px}.place{display:grid;grid-template-columns:76px 1fr auto;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:18px;padding:9px}
-.thumb{width:76px;height:76px;border-radius:13px;background:#ecece8;object-fit:cover;display:grid;place-items:center;font-size:28px}.place h3{margin:0 0 4px;font-size:16px}.meta{font-size:13px;color:var(--muted)}.stars{font-size:13px;margin-top:5px}
-.nav{position:fixed;z-index:1000;bottom:0;left:50%;transform:translateX(-50%);width:min(720px,100%);height:calc(68px + env(safe-area-inset-bottom));padding:8px 14px env(safe-area-inset-bottom);background:#fffffff2;backdrop-filter:blur(18px);border-top:1px solid #ddd;display:grid;grid-template-columns:1fr 1fr 1fr}
-.nav button{border:0;background:none;font-size:12px;font-weight:650;color:#666}.nav .add{width:48px;height:48px;border-radius:50%;background:#171717;color:white;font-size:28px;margin:auto}
-.sheet{position:fixed;z-index:2000;inset:0;background:#0005;display:none;align-items:flex-end}.sheet.open{display:flex}.panel{width:min(720px,100%);margin:auto;background:var(--bg);border-radius:26px 26px 0 0;padding:16px 18px calc(20px + env(safe-area-inset-bottom));max-height:91vh;overflow:auto}
-.handle{width:42px;height:5px;border-radius:5px;background:#ccc;margin:0 auto 14px}.row{display:flex;gap:10px}.field{margin:12px 0}.field label{display:block;font-size:13px;font-weight:700;margin:0 0 6px}
-.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px;font-size:16px}.field textarea{min-height:82px;resize:vertical}
-.primary{width:100%;border:0;border-radius:15px;background:var(--accent);color:#fff;padding:14px;font-weight:750;font-size:16px}.secondary{border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px 14px}
-.coords{font-size:12px;color:var(--muted);margin-top:6px}.photoPreview{width:100%;max-height:180px;object-fit:cover;border-radius:14px;display:none;margin-top:8px}
-.rate{display:flex;gap:5px}.rate button{border:0;background:none;font-size:30px;padding:1px;color:#c9c9c4}.rate button.on{color:#efad20}
-.crosshair{position:absolute;z-index:500;left:50%;top:50%;transform:translate(-50%,-100%);font-size:34px;pointer-events:none;display:none;text-shadow:0 2px 5px #fff}.adding .crosshair{display:block}
-.mapwrap{position:relative}.hint{display:none;position:absolute;z-index:600;bottom:14px;left:50%;transform:translateX(-50%);background:#171717;color:white;padding:9px 12px;border-radius:999px;font-size:12px;white-space:nowrap}.adding .hint{display:block}
-@media(min-width:700px){#map{height:520px}}
+:root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-height:100vh}.page{display:none;padding-bottom:88px}.page.active{display:block}
+.top{padding:calc(14px + env(safe-area-inset-top)) 18px 10px;display:flex;justify-content:space-between;align-items:center}.brand{font-size:27px;font-weight:800;letter-spacing:-1px}.muted,.meta{font-size:13px;color:var(--muted)}
+.pill{border:0;background:#fff;border-radius:999px;padding:10px 14px;font-weight:650;box-shadow:0 1px 8px #0001}
+.mapwrap{position:relative;margin:0 12px}#map{height:calc(100vh - 164px - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:470px;border-radius:24px;overflow:hidden;background:#ddd}
+.crosshair{position:absolute;z-index:700;left:50%;top:50%;width:38px;height:38px;transform:translate(-50%,-50%);pointer-events:none}
+.crosshair:before,.crosshair:after{content:"";position:absolute;background:#111;box-shadow:0 0 0 2px #fff8}.crosshair:before{width:2px;height:38px;left:18px}.crosshair:after{height:2px;width:38px;top:18px}.crosshair i{position:absolute;width:9px;height:9px;border:2px solid #111;background:#fff;border-radius:50%;left:14.5px;top:14.5px}
+.maptools{position:absolute;z-index:800;right:12px;top:12px}.maptools button{border:0;background:#fffffff0;border-radius:13px;padding:10px 12px;font-weight:700;box-shadow:0 1px 8px #0002;backdrop-filter:blur(12px)}
+.nearby{position:absolute;z-index:800;left:12px;right:12px;bottom:16px;background:#fffffff2;border-radius:18px;padding:12px 14px;box-shadow:0 4px 20px #0002;backdrop-filter:blur(14px)}.nearby b{display:block;font-size:16px}.nearby small{color:var(--muted)}
+.placesHead{padding:calc(16px + env(safe-area-inset-top)) 16px 5px}.placesHead h1{margin:0;font-size:30px}.search{width:100%;margin-top:14px;border:0;background:#e9e9e6;border-radius:14px;padding:12px 14px;font-size:16px}
+.filters{display:flex;gap:8px;overflow:auto;padding:8px 16px;scrollbar-width:none}.filters::-webkit-scrollbar{display:none}.chip{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 12px}.chip.on{background:#171717;color:#fff;border-color:#171717}
+.cards{display:grid;gap:10px;padding:8px 16px}.place{display:grid;grid-template-columns:74px 1fr auto;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:18px;padding:9px}.thumb{width:74px;height:74px;border-radius:13px;background:#ecece8;object-fit:cover;display:grid;place-items:center;font-size:28px}.place h3{margin:0 0 4px;font-size:16px}.stars{font-size:14px;margin-top:5px;color:#e9a51a}.empty{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;color:var(--muted);text-align:center}
+.nav{position:fixed;z-index:1000;bottom:0;left:50%;transform:translateX(-50%);width:min(720px,100%);height:calc(68px + env(safe-area-inset-bottom));padding:7px 14px env(safe-area-inset-bottom);background:#fffffff2;backdrop-filter:blur(18px);border-top:1px solid #ddd;display:grid;grid-template-columns:1fr 1fr 1fr}.nav button{border:0;background:none;font-size:12px;font-weight:650;color:#777}.nav button.sel{color:#111}.nav .add{width:50px;height:50px;border-radius:50%;background:#171717;color:#fff;font-size:28px;margin:auto}
+.sheet{position:fixed;z-index:2000;inset:0;background:#0005;display:none;align-items:flex-end}.sheet.open{display:flex}.panel{width:min(720px,100%);margin:auto;background:var(--bg);border-radius:26px 26px 0 0;padding:16px 18px calc(20px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}.handle{width:42px;height:5px;border-radius:5px;background:#ccc;margin:0 auto 14px}.row{display:flex;gap:10px}.field{margin:12px 0}.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px;font-size:16px}.field textarea{min-height:78px;resize:vertical}.primary{width:100%;border:0;border-radius:15px;background:var(--accent);color:#fff;padding:14px;font-weight:750;font-size:16px}.secondary{border:1px solid var(--line);background:#fff;border-radius:14px;padding:10px 12px}.coords{font-size:12px;color:var(--muted);margin-top:5px}
+.rate{display:flex;gap:7px}.star{position:relative;border:0;background:none;padding:0;font-size:33px;line-height:1;color:#ccc}.star.full{color:#efad20}.star.half:after{content:"★";position:absolute;left:0;top:0;width:50%;overflow:hidden;color:#efad20}.ratingHelp{font-size:12px;color:var(--muted);margin-top:4px}
+.previews{display:flex;gap:8px;overflow:auto;margin-top:9px}.preview{position:relative;flex:0 0 90px}.preview img{width:90px;height:90px;object-fit:cover;border-radius:12px}.preview button{position:absolute;right:3px;top:3px;width:25px;height:25px;border:0;border-radius:50%;background:#000b;color:#fff}
 </style>
-</head>
-<body>
+</head><body>
 <div class="app">
-  <header class="top"><div><div class="brand">Pinpoint</div><div class="meta">Your world, remembered.</div></div><button class="pill" id="count">0 places</button></header>
-  <div class="filters" id="filters"></div>
-  <div class="mapwrap" id="mapwrap"><div id="map"></div><div class="crosshair">📍</div><div class="hint">Move the map to position your pin</div></div>
-  <section class="section"><h2>My places</h2><div id="places" class="cards"></div></section>
-</div>
+<section id="mapPage" class="page active">
+<header class="top"><div><div class="brand">Pinpoint</div><div class="muted">Move the map beneath the crosshair</div></div><button class="pill" id="count">0 places</button></header>
+<div class="mapwrap"><div id="map"></div><div class="crosshair"><i></i></div><div class="maptools"><button id="styleBtn">◫ Explore</button></div><div class="nearby" id="nearby"><b>Finding this place…</b><small>Move the map to choose a location</small></div></div>
+</section>
+<section id="placesPage" class="page">
+<div class="placesHead"><h1>Places</h1><div class="muted" id="placeCount">0 saved places</div><input class="search" id="search" placeholder="Search your places"></div>
+<div class="filters" id="filters"></div><div class="cards" id="places"></div>
+</section></div>
+<nav class="nav"><button id="mapBtn" class="sel">⌖<br>Map</button><button class="add" id="addBtn">+</button><button id="placesBtn">♡<br>Places</button></nav>
 
-<nav class="nav">
-  <button type="button" id="mapBtn">⌖<br>Map</button>
-  <button type="button" class="add" id="addBtn" aria-label="Add place">+</button>
-  <button type="button" id="placesBtn">♡<br>Places</button>
-</nav>
-
-<div class="sheet" id="sheet" role="dialog" aria-modal="true">
- <div class="panel">
-  <div class="handle"></div>
-  <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Add a place</h2><button class="secondary" id="closeBtn">Cancel</button></div>
-  <form id="form">
-    <div class="field"><label for="name">Place name</label><input id="name" required maxlength="80" placeholder="e.g. Pasjača Beach"></div>
-    <div class="row">
-      <div class="field" style="flex:1"><label for="category">Type</label><select id="category"></select></div>
-      <div class="field" style="flex:1"><label for="status">Status</label><select id="status"><option>Visited</option><option>Want to visit</option></select></div>
-    </div>
-    <div class="field"><label>Rating</label><div class="rate" id="rate"></div></div>
-    <div class="field"><label for="photo">Photo</label><input id="photo" type="file" accept="image/*"><img id="photoPreview" class="photoPreview" alt="Selected photo"></div>
-    <div class="field"><label for="notes">Notes</label><textarea id="notes" maxlength="1000" placeholder="What made this place worth remembering?"></textarea></div>
-    <div class="field"><label>Location</label><div class="coords" id="coords"></div><button type="button" class="secondary" id="reposition">Reposition on map</button></div>
-    <button class="primary" type="submit">Save place</button>
-  </form>
- </div>
-</div>
+<div class="sheet" id="sheet"><div class="panel"><div class="handle"></div><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Add place</h2><button class="secondary" id="closeBtn">Cancel</button></div>
+<form id="form">
+<div class="field"><label>Place name</label><input id="name" required maxlength="100" placeholder="Finding nearby name…"><div class="coords" id="coords"></div></div>
+<div class="row"><div class="field" style="flex:1"><label>Type</label><select id="category"></select></div><div class="field" style="flex:1"><label>Status</label><select id="status"><option>Visited</option><option>Want to visit</option></select></div></div>
+<div class="field"><label>Rating <span id="ratingText">5.0</span></label><div class="rate" id="rate"></div><div class="ratingHelp">Tap a star once for whole, then tap that star again for half.</div></div>
+<div class="field"><label>Photos</label><input id="photos" type="file" accept="image/*" multiple><div class="ratingHelp">Choose multiple photos. Large images are automatically compressed.</div><div id="previews" class="previews"></div></div>
+<div class="field"><label>Notes</label><textarea id="notes" maxlength="1000" placeholder="What made this place worth remembering?"></textarea></div>
+<button class="primary" type="submit">Save place</button></form></div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const CATS=[
- {name:"Beach",emoji:"🏖️"},{name:"Viewpoint",emoji:"⛰️"},{name:"Hike",emoji:"🥾"},
- {name:"Restaurant",emoji:"🍴"},{name:"Attraction",emoji:"🏛️"},{name:"Accommodation",emoji:"🛏️"},{name:"Other",emoji:"📍"}
-];
-let places=JSON.parse(localStorage.getItem("pinpoint-places")||"[]"), filter="All", rating=5, draftPhoto="";
-const map=L.map("map",{zoomControl:false,worldCopyJump:true}).setView([25,10],2);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
-L.control.zoom({position:"topright"}).addTo(map);
-const markers=L.layerGroup().addTo(map);
+const CATS=[["Beach","🏖️"],["Viewpoint","⛰️"],["Hike","🥾"],["Restaurant","🍴"],["Attraction","🏛️"],["Accommodation","🛏️"],["Other","📍"]].map(([name,emoji])=>({name,emoji}));
+let places=JSON.parse(localStorage.getItem("pinpoint-places")||"[]").map(p=>({...p,photos:p.photos||(p.photo?[p.photo]:[]),rating:Number(p.rating||0)}));
+let filter="All",rating=5,draftPhotos=[],nearName="",nearType="",geoTimer,mapStyle="Explore";
 const $=id=>document.getElementById(id);
+const map=L.map("map",{zoomControl:false,worldCopyJump:true}).setView([25,10],2);L.control.zoom({position:"topleft"}).addTo(map);
+const explore=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const satellite=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Tiles © Esri"});
+const markers=L.layerGroup().addTo(map);
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-function emoji(cat){return (CATS.find(c=>c.name===cat)||CATS.at(-1)).emoji}
+function emo(c){return(CATS.find(x=>x.name===c)||CATS.at(-1)).emoji}
+function starText(v){let s="";for(let i=1;i<=5;i++)s+=i<=Math.floor(v)?"★":v>=i-.5?"½":"☆";return s}
+function page(w){$("mapPage").classList.toggle("active",w==="map");$("placesPage").classList.toggle("active",w==="places");$("mapBtn").classList.toggle("sel",w==="map");$("placesBtn").classList.toggle("sel",w==="places");if(w==="map")setTimeout(()=>map.invalidateSize(),30)}
 function save(){localStorage.setItem("pinpoint-places",JSON.stringify(places));render()}
-function renderFilters(){
- $("filters").innerHTML=["All",...CATS.map(c=>c.name)].map(x=>`<button class="chip ${filter===x?"on":""}" data-filter="${x}">${x==="All"?"All":emoji(x)+" "+x}</button>`).join("");
- document.querySelectorAll("[data-filter]").forEach(b=>b.addEventListener("click",()=>{filter=b.dataset.filter;render()}));
-}
+function renderFilters(){$("filters").innerHTML=["All",...CATS.map(c=>c.name),"Visited","Want to visit"].map(x=>'<button class="chip '+(filter===x?"on":"")+'" data-f="'+x+'">'+(CATS.some(c=>c.name===x)?emo(x)+" ":"")+x+"</button>").join("");document.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;render()})}
 function render(){
- renderFilters(); markers.clearLayers();
- const shown=places.filter(p=>filter==="All"||p.category===filter);
- $("count").textContent=places.length+" "+(places.length===1?"place":"places");
- shown.forEach(p=>{
-   const icon=L.divIcon({html:`<div style="font-size:26px;filter:drop-shadow(0 2px 2px #fff)">${emoji(p.category)}</div>`,className:"",iconSize:[32,32],iconAnchor:[16,16]});
-   L.marker([p.lat,p.lng],{icon}).addTo(markers).bindPopup(`<b>${esc(p.name)}</b><br>${emoji(p.category)} ${esc(p.category)} · ${"★".repeat(p.rating)}${"☆".repeat(5-p.rating)}`);
- });
- $("places").innerHTML=shown.length?shown.map(p=>`<article class="place" data-id="${p.id}">
-   ${p.photo?`<img class="thumb" src="${p.photo}" alt="">`:`<div class="thumb">${emoji(p.category)}</div>`}
-   <div><h3>${esc(p.name)}</h3><div class="meta">${emoji(p.category)} ${esc(p.category)} · ${esc(p.status)}</div><div class="stars">${"★".repeat(p.rating)}${"☆".repeat(5-p.rating)}</div></div>
-   <button class="secondary del" data-del="${p.id}" aria-label="Delete ${esc(p.name)}">×</button></article>`).join(""):`<div class="empty">No places here yet.<br>Tap <b>+</b> to add your first memory.</div>`;
- document.querySelectorAll("[data-id]").forEach(el=>el.addEventListener("click",e=>{if(e.target.closest(".del"))return;const p=places.find(x=>x.id===el.dataset.id);map.setView([p.lat,p.lng],12);window.scrollTo({top:0,behavior:"smooth"})}));
- document.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{if(confirm("Delete this place?")){places=places.filter(p=>p.id!==b.dataset.del);save()}}));
+ renderFilters();markers.clearLayers();$("count").textContent=places.length+" "+(places.length===1?"place":"places");$("placeCount").textContent=places.length+" saved "+(places.length===1?"place":"places");
+ places.forEach(p=>L.marker([p.lat,p.lng]).addTo(markers).bindPopup("<b>"+esc(p.name)+"</b><br>"+emo(p.category)+" "+esc(p.category)+" · "+p.rating.toFixed(1)+" ★"));
+ let q=$("search").value.trim().toLowerCase(),shown=places.filter(p=>(filter==="All"||p.category===filter||p.status===filter)&&(!q||[p.name,p.category,p.status,p.notes].join(" ").toLowerCase().includes(q)));
+ $("places").innerHTML=shown.length?shown.map(p=>'<article class="place" data-id="'+p.id+'">'+((p.photos||[])[0]?'<img class="thumb" src="'+p.photos[0]+'">':'<div class="thumb">'+emo(p.category)+'</div>')+'<div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div></div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
+ document.querySelectorAll("[data-id]").forEach(el=>el.onclick=e=>{if(e.target.closest(".del"))return;let p=places.find(x=>x.id===el.dataset.id);page("map");map.setView([p.lat,p.lng],15)});
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("Delete this place?")){places=places.filter(p=>p.id!==b.dataset.del);save()}})
 }
-function renderRate(){ $("rate").innerHTML=[1,2,3,4,5].map(n=>`<button type="button" class="${n<=rating?"on":""}" data-rate="${n}">★</button>`).join("");document.querySelectorAll("[data-rate]").forEach(b=>b.addEventListener("click",()=>{rating=+b.dataset.rate;renderRate()}))}
-function updateCoords(){const c=map.getCenter();$("coords").textContent=`${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`}
-function beginAdd(){ $("mapwrap").classList.add("adding"); updateCoords(); window.scrollTo({top:0,behavior:"smooth"}); setTimeout(()=>{$("sheet").classList.add("open");updateCoords()},350)}
-$("addBtn").addEventListener("click",beginAdd);
-$("closeBtn").addEventListener("click",()=>{$("sheet").classList.remove("open");$("mapwrap").classList.remove("adding")});
-$("reposition").addEventListener("click",()=>{$("sheet").classList.remove("open");$("mapwrap").classList.add("adding");updateCoords();setTimeout(()=>{if(confirm("Pin positioned? Tap OK to continue.")){$("sheet").classList.add("open");updateCoords()}},300)});
-map.on("moveend",()=>{if($("mapwrap").classList.contains("adding"))updateCoords()});
-$("photo").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return; if(f.size>4*1024*1024){alert("For this prototype, choose a photo under 4 MB.");e.target.value="";return} const r=new FileReader();r.onload=()=>{draftPhoto=r.result;$("photoPreview").src=draftPhoto;$("photoPreview").style.display="block"};r.readAsDataURL(f)});
-$("form").addEventListener("submit",e=>{e.preventDefault();const c=map.getCenter();places.unshift({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,photo:draftPhoto,created:new Date().toISOString()});try{save()}catch(err){places.shift();alert("Your browser storage is full. Try a smaller photo.");return}$("form").reset();draftPhoto="";$("photoPreview").style.display="none";rating=5;renderRate();$("sheet").classList.remove("open");$("mapwrap").classList.remove("adding");});
-$("mapBtn").addEventListener("click",()=>window.scrollTo({top:0,behavior:"smooth"}));$("placesBtn").addEventListener("click",()=>document.querySelector(".section").scrollIntoView({behavior:"smooth"}));
-$("category").innerHTML=CATS.map(c=>`<option value="${c.name}">${c.emoji} ${c.name}</option>`).join("");
-renderRate();render();
-if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js").catch(()=>{});
-</script>
-</body>
-</html>
+function renderRate(){$("ratingText").textContent=rating.toFixed(1);$("rate").innerHTML=[1,2,3,4,5].map(n=>'<button type="button" class="star '+(rating>=n?"full":rating===n-.5?"half":"")+'" data-r="'+n+'">★</button>').join("");document.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{let n=+b.dataset.r;rating=rating===n?n-.5:n;renderRate()})}
+function infer(d){let t=((d.type||"")+" "+(d.category||"")+" "+(d.addresstype||"")).toLowerCase();if(t.includes("beach"))return"Beach";if(/restaurant|cafe|food/.test(t))return"Restaurant";if(/hotel|hostel|accommodation/.test(t))return"Accommodation";if(t.includes("viewpoint"))return"Viewpoint";if(/tourism|attraction|museum|historic/.test(t))return"Attraction";return"Other"}
+async function lookup(){let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("nearby").innerHTML="<b>Finding this place…</b><small>"+c.lat.toFixed(4)+", "+c.lng.toFixed(4)+"</small>";try{let r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat="+c.lat+"&lon="+c.lng+"&addressdetails=1",{headers:{"Accept-Language":"en"}}),d=await r.json();nearName=d.name||d.address?.beach||d.address?.attraction||d.address?.restaurant||d.address?.amenity||d.address?.village||d.address?.town||d.address?.city||(d.display_name||"").split(",")[0]||"Unnamed place";nearType=infer(d);$("nearby").innerHTML="<b>"+esc(nearName)+"</b><small>"+esc(nearType)+" · "+esc((d.display_name||"").split(",").slice(1,3).join(","))+"</small>"}catch(e){nearName="";$("nearby").innerHTML="<b>Selected location</b><small>"+c.lat.toFixed(4)+", "+c.lng.toFixed(4)+"</small>"}}
+map.on("moveend",()=>{clearTimeout(geoTimer);geoTimer=setTimeout(lookup,700)});
+function renderPreviews(){$("previews").innerHTML=draftPhotos.map((p,i)=>'<div class="preview"><img src="'+p+'"><button type="button" data-rm="'+i+'">×</button></div>').join("");document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{draftPhotos.splice(+b.dataset.rm,1);renderPreviews()})}
+function fileToData(file){return new Promise((resolve,reject)=>{let r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
+async function compress(file){
+ if(file.size<=4*1024*1024)return await fileToData(file);
+ let src=await fileToData(file),img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=src});
+ let max=1800,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+ let quality=.82,out=c.toDataURL("image/jpeg",quality);while(out.length>4*1024*1024*1.34&&quality>.45){quality-=.08;out=c.toDataURL("image/jpeg",quality)}return out
+}
+$("photos").onchange=async e=>{let fs=[...e.target.files];for(let f of fs){try{draftPhotos.push(await compress(f))}catch(err){alert("One photo could not be processed.")}}renderPreviews();e.target.value=""};
+$("addBtn").onclick=()=>{let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("name").value=nearName||"";if(nearType&&CATS.some(x=>x.name===nearType))$("category").value=nearType;$("sheet").classList.add("open")};
+$("closeBtn").onclick=()=>$("sheet").classList.remove("open");$("mapBtn").onclick=()=>page("map");$("placesBtn").onclick=()=>page("places");$("search").oninput=render;
+$("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);satellite.addTo(map);mapStyle="Satellite"}else{map.removeLayer(satellite);explore.addTo(map);mapStyle="Explore"}$("styleBtn").textContent="◫ "+mapStyle};
+$("form").onsubmit=e=>{e.preventDefault();let c=map.getCenter(),p={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,photos:[...draftPhotos],created:new Date().toISOString()};places.unshift(p);try{save()}catch(err){places.shift();alert("Device storage is full. Try fewer photos.");return}$("form").reset();draftPhotos=[];renderPreviews();rating=5;renderRate();$("sheet").classList.remove("open")};
+$("category").innerHTML=CATS.map(c=>'<option value="'+c.name+'">'+c.emoji+" "+c.name+"</option>").join("");renderRate();render();lookup();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+</script></body></html>
