@@ -1,3 +1,40 @@
-const CACHE="pinpoint-v1";const CORE=["./","./index.html","./manifest.webmanifest","./icon-192.svg","./icon-512.svg"];
-self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE))));
-self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(x=>{const y=x.clone();caches.open(CACHE).then(c=>c.put(e.request,y));return x}).catch(()=>r)))});
+const CACHE = "pinpoint-v3";
+
+self.addEventListener("install", event => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", event => {
+  const req = event.request;
+
+  // Always check the network first for the app itself so GitHub updates appear.
+  if (req.mode === "navigate" || new URL(req.url).pathname.endsWith("/index.html")) {
+    event.respondWith(
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+        return res;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Other resources can use cache-first.
+  event.respondWith(
+    caches.match(req).then(cached => cached || fetch(req).then(res => {
+      if (req.url.startsWith(self.location.origin)) {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+      }
+      return res;
+    }))
+  );
+});
