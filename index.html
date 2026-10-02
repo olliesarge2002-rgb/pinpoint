@@ -45,11 +45,11 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
 .brandPoint{font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive;font-weight:500;font-style:italic;letter-spacing:-1.5px;margin-left:-1px}
 .brandPlane{width:29px;height:17px;margin-left:-3px;align-self:center;overflow:visible}
 .navIcon{width:23px;height:23px;display:block;margin:0 auto 2px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-</style>
+.approvedBrand{display:flex;align-items:center}.approvedBrand img{display:block;width:174px;height:auto;max-height:48px;object-fit:contain;object-position:left center}</style>
 </head><body>
 <div class="app">
 <section id="mapPage" class="page active">
-<header class="top"><div><div class="brand brandWordmark" aria-label="Pinpoint"><span class="brandPin">Pin</span><span class="brandPoint">point</span><svg class="brandPlane" viewBox="0 0 34 18" aria-hidden="true"><path d="M1 14 C10 15 17 12 24 8" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M23 8 L31 3 L28 9 L32 12 L30 14 L26 11 L21 13 Z" fill="currentColor"/></svg></div><div class="muted">Move the map beneath the crosshair</div></div><div style="display:flex;gap:8px;align-items:center"><button class="authBtn" id="accountBtn">Sign in</button><button class="pill" id="count">0 places</button></div></header>
+<header class="top"><div><div class="brand approvedBrand"><img src="pinpoint-wordmark.png" alt="Pinpoint"></div><div class="muted">Move the map beneath the crosshair</div></div><div style="display:flex;gap:8px;align-items:center"><button class="authBtn" id="accountBtn">Sign in</button><button class="pill" id="count">0 places</button></div></header>
 <div class="mapwrap"><div id="map"></div><div class="crosshair"><i></i></div><div class="maptools"><button id="styleBtn">◫ Explore</button></div><div class="nearby" id="nearby"><b>Finding this place…</b><small>Move the map to choose a location</small></div></div>
 </section>
 <section id="placesPage" class="page">
