@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pinpoint">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <title>Pinpoint</title><!-- V1.4.4 ROUTE DISTANCES -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -75,6 +77,13 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
       <div id="myEmail" class="tinyStatus"></div>
       <div class="row profileAction"><button class="secondary" id="avatarBtn" style="flex:1">Profile picture</button><button class="secondary" id="editProfileBtn" style="flex:1">Edit profile</button></div>
       <input id="avatarFile" type="file" accept="image/*" hidden>
+    </div>
+    <div class="socialCard">
+      <b>Local data</b>
+      <div class="muted" style="margin-top:5px">Backup includes your places, GPX routes and locally stored photos.</div>
+      <div class="row" style="margin-top:12px"><button class="secondary" id="backupBtn" style="flex:1">Backup data</button><button class="secondary" id="restoreBtn" style="flex:1">Restore backup</button></div>
+      <input id="restoreFile" type="file" accept=".json,application/json" hidden>
+      <div class="tinyStatus" id="backupStatus"></div>
     </div>
     <div class="socialCard"><button class="secondary" id="profileSignOut" style="width:100%">Sign out</button></div>
   </div>
@@ -158,6 +167,37 @@ async function photoPut(id,blob){let db=await dbp;return new Promise((res,rej)=>
 async function photoGet(id){let db=await dbp;return new Promise((res,rej)=>{let q=db.transaction(STORE).objectStore(STORE).get(id);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
 async function photoDelete(id){let db=await dbp;return new Promise((res,rej)=>{let tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 async function photoURL(id){if(!id)return"";if(String(id).startsWith("data:"))return id;let b=await photoGet(id);return b?URL.createObjectURL(b):""}
+function blobToDataURL(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
+function dataURLToBlob(s){let a=s.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"application/octet-stream",b=atob(a[1]),n=b.length,u=new Uint8Array(n);while(n--)u[n]=b.charCodeAt(n);return new Blob([u],{type:m})}
+async function backupLocalData(){
+  let btn=$("backupBtn"),status=$("backupStatus");btn.disabled=true;status.textContent="Preparing backup…";
+  try{
+    let photos={};
+    let ids=[...new Set(places.flatMap(p=>p.photos||[]).filter(id=>!String(id).startsWith("data:")))];
+    for(let i=0;i<ids.length;i++){let b=await photoGet(ids[i]);if(b)photos[ids[i]]=await blobToDataURL(b);status.textContent="Backing up photos "+(i+1)+" of "+ids.length+"…"}
+    let payload={format:"pinpoint-backup",version:1,createdAt:new Date().toISOString(),places,photos};
+    let blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
+    let url=URL.createObjectURL(blob),a=document.createElement("a"),d=new Date().toISOString().slice(0,10);
+    a.href=url;a.download="Pinpoint-backup-"+d+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    status.textContent="Backup created: "+places.length+" places · "+Object.keys(photos).length+" photos.";
+  }catch(e){console.error(e);alert("Backup could not be created.");status.textContent="Backup failed."}finally{btn.disabled=false}
+}
+async function restoreLocalData(file){
+  if(!file)return;
+  let status=$("backupStatus");status.textContent="Reading backup…";
+  try{
+    let payload=JSON.parse(await file.text());
+    if(payload?.format!=="pinpoint-backup"||!Array.isArray(payload.places)||!payload.photos)throw new Error("Invalid backup");
+    let count=Object.keys(payload.photos).length;
+    if(!confirm("Restore "+payload.places.length+" places and "+count+" photos? This will replace the local Pinpoints currently on this device.")){status.textContent="Restore cancelled.";return}
+    let i=0;
+    for(let [id,data] of Object.entries(payload.photos)){await photoPut(id,dataURLToBlob(data));i++;status.textContent="Restoring photos "+i+" of "+count+"…"}
+    places=payload.places.map(p=>({...p,photos:p.photos||[],rating:Number(p.rating||0)}));
+    localStorage.setItem("pinpoint-places",JSON.stringify(places));render();draw();status.textContent="Restore complete: "+places.length+" places · "+count+" photos.";
+    alert("Pinpoint backup restored.");
+  }catch(e){console.error(e);alert("That file is not a valid Pinpoint backup.");status.textContent="Restore failed."}
+}
+
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function emo(c){return(CATS.find(x=>x.name===c)||CATS.at(-1)).emoji}
 function starText(v){let s="";for(let i=1;i<=5;i++)s+=i<=Math.floor(v)?"★":v>=i-.5?"½":"☆";return s}
@@ -207,7 +247,7 @@ $("friendsSignIn").onclick=$("profileSignIn").onclick=()=>{$("authPage").classLi
 $("peopleSearch").oninput=()=>{clearTimeout(window._peopleTimer);window._peopleTimer=setTimeout(searchPeople,250)};
 $("followingTab").onclick=()=>{connectionMode="following";$("followingTab").classList.add("on");$("followersTab").classList.remove("on");loadConnections()};
 $("followersTab").onclick=()=>{connectionMode="followers";$("followersTab").classList.add("on");$("followingTab").classList.remove("on");loadConnections()};
-$("avatarBtn").onclick=()=>$("avatarFile").click();$("avatarFile").onchange=e=>uploadAvatar(e.target.files?.[0]);$("editProfileBtn").onclick=editMyProfile;$("profileSignOut").onclick=async()=>{await sb.auth.signOut();updateAuthUI(null);page("map")};
+$("avatarBtn").onclick=()=>$("avatarFile").click();$("avatarFile").onchange=e=>uploadAvatar(e.target.files?.[0]);$("editProfileBtn").onclick=editMyProfile;$("backupBtn").onclick=backupLocalData;$("restoreBtn").onclick=()=>$("restoreFile").click();$("restoreFile").onchange=e=>{restoreLocalData(e.target.files?.[0]);e.target.value=""};$("profileSignOut").onclick=async()=>{await sb.auth.signOut();updateAuthUI(null);page("map")};
 $("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);satellite.addTo(map);mapStyle="Satellite"}else{map.removeLayer(satellite);explore.addTo(map);mapStyle="Explore"}$("styleBtn").textContent="◫ "+mapStyle};
 $("form").onsubmit=async e=>{e.preventDefault();let ids=[];try{for(let x of draftPhotos){let id="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(id,x.blob);ids.push(id)}}catch(err){alert("Could not save all photos. Your device may be low on storage.");return}if(editingId){let p=places.find(x=>x.id===editingId);p.name=$("name").value.trim();p.category=$("category").value;p.status=$("status").value;p.rating=rating;p.notes=$("notes").value.trim();p.route=draftRoute||p.route||null;p.photos=[...(p.photos||[]),...ids];save();$("sheet").classList.remove("open");let id=editingId;editingId=null;draftPhotos=[];renderPreviews();await openPlace(id)}else{let c=map.getCenter(),p={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,photos:ids,route:draftRoute,created:new Date().toISOString()};places.unshift(p);save();$("sheet").classList.remove("open");draftPhotos=[];renderPreviews()}$("form").reset();rating=5;renderRate()};
 $("lightboxTrack").onscroll=()=>requestAnimationFrame(updateLightboxCount);$("lightboxClose").onclick=()=>$("lightbox").classList.remove("open");$("editPlace").onclick=beginEdit;$("ratingFilter").onchange=render;$("sort").onchange=render;$("galleryBack").onclick=()=>$("galleryPage").classList.remove("open");

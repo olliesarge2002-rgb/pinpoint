@@ -1,22 +1,29 @@
 {
-  "name": "Pinpoint \u2014 Your World, Remembered",
+  "name": "Pinpoint",
   "short_name": "Pinpoint",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f7f7f5",
   "theme_color": "#f7f7f5",
   "icons": [
     {
-      "src": "icon-192.svg",
+      "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-512.svg",
+      "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
