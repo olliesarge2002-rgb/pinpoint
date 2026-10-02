@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pinpoint">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Pinpoint</title><!-- V1.4.1 GPX FIX -->
+<title>Pinpoint</title><!-- V1.4.2 iOS GPX PICKER FIX -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -45,7 +45,7 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
 <nav class="nav"><button id="mapBtn" class="sel">⌖<br>Map</button><button class="add" id="addBtn">+</button><button id="placesBtn">♡<br>Places</button></nav>
 
 <div class="sheet" id="sheet"><div class="panel"><div class="handle"></div><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0" id="sheetTitle">Add place</h2><div style="display:flex;gap:8px"><div class="moreWrap"><button type="button" class="moreBtn" id="moreBtn">•••</button><div class="moreMenu" id="moreMenu"><button type="button" id="gpxBtn">↝ Import GPX route</button></div></div><button class="secondary" id="closeBtn">Cancel</button></div></div>
-<input id="gpxFile" type="file" accept=".gpx,application/gpx+xml" hidden><form id="form"><div class="routeInfo" id="routeInfo"></div>
+<input id="gpxFile" type="file"  hidden><form id="form"><div class="routeInfo" id="routeInfo"></div>
 <div class="field"><label>Place name</label><input id="name" required maxlength="100" placeholder="Finding nearby name…"><div class="coords" id="coords"></div></div>
 <div class="row"><div class="field" style="flex:1"><label>Type</label><select id="category"></select></div><div class="field" style="flex:1"><label>Status</label><select id="status"><option>Visited</option><option>Want to visit</option></select></div></div>
 <div class="field"><label>Rating <span id="ratingText">5.0</span></label><div class="rate" id="rate"></div><div class="ratingHelp">Tap a star once for whole, then tap that star again for half.</div></div>
@@ -106,7 +106,7 @@ function haversine(a,b){let R=6371,rad=Math.PI/180,dlat=(b.lat-a.lat)*rad,dlon=(
 function readGPX(text){let doc=new DOMParser().parseFromString(text,"application/xml");if(doc.querySelector("parsererror"))throw new Error("Invalid GPX");let ns=[...doc.querySelectorAll("trkpt")];if(ns.length<2)ns=[...doc.querySelectorAll("rtept")];if(ns.length<2)throw new Error("No track points");let pts=ns.map(n=>({lat:Number(n.getAttribute("lat")),lng:Number(n.getAttribute("lon")),ele:n.querySelector("ele")?Number(n.querySelector("ele").textContent):null}));let distance=0,gain=0;for(let i=1;i<pts.length;i++){distance+=haversine(pts[i-1],pts[i]);if(pts[i].ele!==null&&pts[i-1].ele!==null&&pts[i].ele>pts[i-1].ele)gain+=pts[i].ele-pts[i-1].ele}let nm=doc.querySelector("trk > name, rte > name, metadata > name");return{name:nm?nm.textContent.trim():"Imported route",points:pts,distanceKm:distance,elevationGain:gain}}
 $("moreBtn").onclick=()=>$("moreMenu").classList.toggle("open");
 $("gpxBtn").onclick=()=>{$("moreMenu").classList.remove("open");$("gpxFile").click()};
-$("gpxFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{draftRoute=readGPX(await f.text());$("name").value=draftRoute.name;$("category").value="Hike";$("routeInfo").style.display="inline-block";$("routeInfo").textContent="↝ "+draftRoute.distanceKm.toFixed(1)+" km"+(draftRoute.elevationGain?" · "+Math.round(draftRoute.elevationGain)+" m ascent":"");map.fitBounds(L.latLngBounds(draftRoute.points.map(q=>[q.lat,q.lng])),{padding:[30,30]})}catch(err){draftRoute=null;alert("That GPX file could not be read.")}e.target.value=""};
+$("gpxFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let txt=await f.text();if(!/\.gpx$/i.test(f.name)&&!/<gpx[\s>]/i.test(txt))throw new Error("Not GPX");draftRoute=readGPX(txt);$("name").value=draftRoute.name;$("category").value="Hike";$("routeInfo").style.display="inline-block";$("routeInfo").textContent="↝ "+draftRoute.distanceKm.toFixed(1)+" km"+(draftRoute.elevationGain?" · "+Math.round(draftRoute.elevationGain)+" m ascent":"");map.fitBounds(L.latLngBounds(draftRoute.points.map(q=>[q.lat,q.lng])),{padding:[30,30]})}catch(err){draftRoute=null;alert("That GPX file could not be read.")}e.target.value=""};
 $("addBtn").onclick=()=>{editingId=null;draftRoute=null;$("routeInfo").style.display="none";draftPhotos=[];renderPreviews();rating=5;renderRate();$("notes").value="";let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("name").value=nearName||"";if(nearType&&CATS.some(x=>x.name===nearType))$("category").value=nearType;$("sheet").classList.add("open")};
 $("closeBtn").onclick=()=>$("sheet").classList.remove("open");$("mapBtn").onclick=()=>page("map");$("placesBtn").onclick=()=>page("places");$("search").oninput=render;
 $("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);satellite.addTo(map);mapStyle="Satellite"}else{map.removeLayer(satellite);explore.addTo(map);mapStyle="Explore"}$("styleBtn").textContent="◫ "+mapStyle};
