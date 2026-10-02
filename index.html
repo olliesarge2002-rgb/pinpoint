@@ -30,17 +30,42 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
 .previews{display:flex;gap:8px;overflow:auto;margin-top:9px}.preview{position:relative;flex:0 0 90px}.preview img{width:90px;height:90px;object-fit:cover;border-radius:12px}.preview button{position:absolute;right:3px;top:3px;width:25px;height:25px;border:0;border-radius:50%;background:#000b;color:#fff}
 .sortrow{display:flex;gap:8px;padding:0 16px 8px}.sortrow select{flex:1;border:1px solid var(--line);background:#fff;border-radius:13px;padding:10px}
 .galleryPage{position:fixed;z-index:1500;inset:0;background:var(--bg);display:none;overflow:auto;padding-bottom:30px}.galleryPage.open{display:block}.galleryTop{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:#f7f7f5ee;backdrop-filter:blur(15px)}.galleryTop button{border:0;background:#fff;border-radius:50%;width:42px;height:42px;font-size:22px}.galleryTitle{font-weight:800;font-size:20px;flex:1}.editPlace{width:auto!important;border-radius:999px!important;padding:0 14px!important;font-size:14px!important;font-weight:750}.lightbox{position:fixed;z-index:3000;inset:0;background:#000;display:none;flex-direction:column}.lightbox.open{display:flex}.lightboxTop{height:calc(56px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 12px 0;display:flex;align-items:center;justify-content:space-between;color:#fff}.lightboxTop button{border:0;background:#ffffff22;color:#fff;border-radius:50%;width:42px;height:42px;font-size:24px}.lightboxTrack{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory}.lightboxSlide{min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;scroll-snap-align:center}.lightboxSlide img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}.lightboxCount{font-size:14px;font-weight:650}.heroGallery{display:flex;overflow:auto;scroll-snap-type:x mandatory;gap:8px;padding:0 14px}.heroGallery img{width:88vw;max-width:620px;height:52vh;min-height:330px;object-fit:cover;border-radius:22px;flex:none;scroll-snap-align:center;background:#ddd}.detail{padding:18px}.detail h1{margin:0 0 4px;font-size:30px}.detailBlock{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:12px}.detailRating{font-size:22px;color:#e9a51a}.photoCount{font-size:12px;color:var(--muted);margin-top:6px}
+
+.authBtn{border:0;background:#fff;border-radius:999px;padding:10px 13px;font-weight:750;box-shadow:0 1px 4px #0001;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.authPage{position:fixed;z-index:2400;inset:0;background:var(--bg);display:none;overflow:auto;padding:calc(18px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom))}
+.authPage.open{display:block}.authInner{max-width:520px;margin:0 auto}.authHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}.authLogo{font-size:28px;font-weight:850}
+.authCard{background:#fff;border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 10px 35px #0000000b}.authTabs{display:grid;grid-template-columns:1fr 1fr;background:#f1f1f1;border-radius:13px;padding:3px;margin-bottom:18px}.authTabs button{border:0;background:transparent;border-radius:10px;padding:10px;font-weight:750}.authTabs button.on{background:#fff;box-shadow:0 1px 4px #0001}.authMessage{display:none;margin:12px 0 0;padding:11px 12px;border-radius:12px;font-size:13px}.authMessage.show{display:block}.authMessage.ok{background:#edf8f2;color:#176b51}.authMessage.err{background:#fff0f0;color:#9d2828}.accountEmail{word-break:break-word;font-weight:750;margin:7px 0 18px}
 </style>
 </head><body>
 <div class="app">
 <section id="mapPage" class="page active">
-<header class="top"><div><div class="brand">Pinpoint</div><div class="muted">Move the map beneath the crosshair</div></div><button class="pill" id="count">0 places</button></header>
+<header class="top"><div><div class="brand">Pinpoint</div><div class="muted">Move the map beneath the crosshair</div></div><div style="display:flex;gap:8px;align-items:center"><button class="authBtn" id="accountBtn">Account</button><button class="pill" id="count">0 places</button></div></header>
 <div class="mapwrap"><div id="map"></div><div class="crosshair"><i></i></div><div class="maptools"><button id="styleBtn">◫ Explore</button></div><div class="nearby" id="nearby"><b>Finding this place…</b><small>Move the map to choose a location</small></div></div>
 </section>
 <section id="placesPage" class="page">
 <div class="placesHead"><h1>Places</h1><div class="muted" id="placeCount">0 saved places</div><input class="search" id="search" placeholder="Search your places"></div>
 <div class="filters" id="filters"></div><div class="sortrow"><select id="ratingFilter"><option value="0">Any rating</option><option value="4">4★ and above</option><option value="3">3★ and above</option><option value="2">2★ and above</option><option value="1">1★ and above</option></select><select id="sort"><option value="new">Newest</option><option value="high">Rating: high to low</option><option value="low">Rating: low to high</option><option value="name">Name A–Z</option></select></div><div class="cards" id="places"></div>
 </section></div>
+
+<div class="authPage" id="authPage"><div class="authInner">
+  <div class="authHead"><div class="authLogo">Pinpoint</div><button class="secondary" id="authClose">Close</button></div>
+  <div id="authSignedOut" class="authCard">
+    <h1 style="margin:0 0 5px">Your Pinpoint account</h1>
+    <div class="muted" style="margin-bottom:18px">Sign in now; your existing places stay stored on this iPhone for this first cloud milestone.</div>
+    <div class="authTabs"><button id="signInTab" class="on" type="button">Sign in</button><button id="signUpTab" type="button">Create account</button></div>
+    <form id="authForm">
+      <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
+      <div class="field"><label>Password</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"></div>
+      <button class="primary" id="authSubmit" type="submit">Sign in</button>
+    </form>
+    <div class="authMessage" id="authMessage"></div>
+  </div>
+  <div id="authSignedIn" class="authCard" style="display:none">
+    <div class="muted">Signed in as</div><div class="accountEmail" id="accountEmail"></div>
+    <div class="muted" style="margin-bottom:18px">Your current places, routes and photos are still local only. Cloud migration comes next.</div>
+    <button class="secondary" id="signOutBtn" style="width:100%">Sign out</button>
+  </div>
+</div></div>
 <div class="galleryPage" id="galleryPage"><div class="galleryTop"><button id="galleryBack">‹</button><div class="galleryTitle">Place</div><button class="editPlace" id="editPlace">Edit</button></div><div id="galleryContent"></div></div><div class="lightbox" id="lightbox"><div class="lightboxTop"><button id="lightboxClose">×</button><div class="lightboxCount" id="lightboxCount"></div><div style="width:42px"></div></div><div class="lightboxTrack" id="lightboxTrack"></div></div>
 <nav class="nav"><button id="mapBtn" class="sel">⌖<br>Map</button><button class="add" id="addBtn">+</button><button id="placesBtn">♡<br>Places</button></nav>
 
@@ -54,11 +79,22 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
 <button class="primary" type="submit">Save place</button></form></div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const CATS=[["Beach","🏖️"],["Viewpoint","⛰️"],["Hike","🥾"],["Restaurant","🍴"],["Attraction","🏛️"],["Accommodation","🛏️"],["Other","📍"]].map(([name,emoji])=>({name,emoji}));
 let places=JSON.parse(localStorage.getItem("pinpoint-places")||"[]").map(p=>({...p,photos:p.photos||[],rating:Number(p.rating||0)}));
 let filter="All",rating=5,draftPhotos=[],nearName="",nearType="",geoTimer,mapStyle="Explore",currentPlaceId=null,editingId=null,currentGalleryURLs=[],draftRoute=null;
 const $=id=>document.getElementById(id);
+const SUPABASE_URL="https://fqfyzvggzppljxqumpnp.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_yNh-1hPn5gRH9jcPO2kIZw_VJUhectp";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+let authMode="signin",authUser=null;
+function authMsg(message,type="ok"){let el=$("authMessage");el.textContent=message;el.className="authMessage show "+type}
+function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage").textContent=""}
+function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
+function updateAuthUI(user){authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?(authUser.email?.split("@")[0]||"Account"):"Account"}
+async function initAuth(){try{let {data}=await sb.auth.getSession();updateAuthUI(data.session?.user||null)}catch(e){updateAuthUI(null)}}
+
 const map=L.map("map",{zoomControl:false,worldCopyJump:true}).setView([25,10],2);L.control.zoom({position:"topleft"}).addTo(map);
 const explore=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
 const satellite=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Tiles © Esri"});
@@ -117,5 +153,14 @@ $("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);sat
 $("form").onsubmit=async e=>{e.preventDefault();let ids=[];try{for(let x of draftPhotos){let id="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(id,x.blob);ids.push(id)}}catch(err){alert("Could not save all photos. Your device may be low on storage.");return}if(editingId){let p=places.find(x=>x.id===editingId);p.name=$("name").value.trim();p.category=$("category").value;p.status=$("status").value;p.rating=rating;p.notes=$("notes").value.trim();p.route=draftRoute||p.route||null;p.photos=[...(p.photos||[]),...ids];save();$("sheet").classList.remove("open");let id=editingId;editingId=null;draftPhotos=[];renderPreviews();await openPlace(id)}else{let c=map.getCenter(),p={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,photos:ids,route:draftRoute,created:new Date().toISOString()};places.unshift(p);save();$("sheet").classList.remove("open");draftPhotos=[];renderPreviews()}$("form").reset();rating=5;renderRate()};
 $("lightboxTrack").onscroll=()=>requestAnimationFrame(updateLightboxCount);$("lightboxClose").onclick=()=>$("lightbox").classList.remove("open");$("editPlace").onclick=beginEdit;$("ratingFilter").onchange=render;$("sort").onchange=render;$("galleryBack").onclick=()=>$("galleryPage").classList.remove("open");
 $("category").innerHTML=CATS.map(c=>'<option value="'+c.name+'">'+c.emoji+" "+c.name+"</option>").join("");renderRate();render();lookup();
+
+$("accountBtn").onclick=()=>{$("authPage").classList.add("open");clearAuthMsg()};
+$("authClose").onclick=()=>$("authPage").classList.remove("open");
+$("signInTab").onclick=()=>setAuthMode("signin");
+$("signUpTab").onclick=()=>setAuthMode("signup");
+$("authForm").onsubmit=async e=>{e.preventDefault();clearAuthMsg();let email=$("authEmail").value.trim(),password=$("authPassword").value;$("authSubmit").disabled=true;$("authSubmit").textContent=authMode==="signin"?"Signing in…":"Creating…";try{if(authMode==="signup"){let {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:"https://olliesarge2002-rgb.github.io/pinpoint/"}});if(error)throw error;if(data.session){updateAuthUI(data.user);authMsg("Account created and signed in.")}else authMsg("Account created. Check your email and tap the verification link, then return to Pinpoint and sign in.")}else{let {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;updateAuthUI(data.user);authMsg("Signed in.")}}catch(err){authMsg(err?.message||"Something went wrong. Please try again.","err")}finally{$("authSubmit").disabled=false;$("authSubmit").textContent=authMode==="signin"?"Sign in":"Create account"}};
+$("signOutBtn").onclick=async()=>{let {error}=await sb.auth.signOut();if(error){alert(error.message);return}updateAuthUI(null);setAuthMode("signin")};
+sb.auth.onAuthStateChange((event,session)=>{updateAuthUI(session?.user||null);if(event==="SIGNED_IN"&&session?.user){$("authPage").classList.remove("open")}});
+setAuthMode("signin");initAuth();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
 </script></body></html>
