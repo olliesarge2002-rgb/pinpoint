@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V1.7.0 CLOUD PLACES + PHOTOS -->
+<title>Pinpoint</title><!-- V1.7.1 LOCAL TO CLOUD MIGRATION -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -84,6 +84,11 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
       <div class="row" style="margin-top:12px"><button class="secondary" id="backupBtn" style="flex:1">Backup data</button><button class="secondary" id="restoreBtn" style="flex:1">Restore backup</button></div>
       <input id="restoreFile" type="file" accept=".json,application/json" hidden>
       <div class="tinyStatus" id="backupStatus"></div>
+      <div style="border-top:1px solid var(--line);margin:14px 0"></div>
+      <b>Move to cloud</b>
+      <div class="muted" style="margin-top:5px">Move Pinpoints still stored on this device into your signed-in account. Local copies are only removed from the app after each place and all its photos are confirmed in the cloud.</div>
+      <button class="primary" id="migrateBtn" style="margin-top:12px">Move local Pinpoints to cloud</button>
+      <div class="tinyStatus" id="migrationStatus"></div>
     </div>
     <div class="socialCard"><button class="secondary" id="profileSignOut" style="width:100%">Sign out</button></div>
   </div>
@@ -183,6 +188,34 @@ async function loadCloudPlaces(){
 async function uploadCloudPhotos(placeId,items){let refs=[];for(let i=0;i<items.length;i++){let x=items[i],ext=(x.blob.type||"").includes("png")?"png":"jpg",photoId=crypto.randomUUID(),path=authUser.id+"/"+placeId+"/"+photoId+"."+ext;let {error}=await sb.storage.from("place-photos").upload(path,x.blob,{contentType:x.blob.type||"image/jpeg",upsert:false});if(error)throw error;let {error:re}=await sb.from("place_photos").insert({id:photoId,place_id:placeId,owner_id:authUser.id,storage_path:path,sort_order:i});if(re){await sb.storage.from("place-photos").remove([path]);throw re}refs.push("cloud:"+path)}return refs}
 async function deleteCloudPlace(p){let paths=(p.photos||[]).filter(x=>String(x).startsWith("cloud:")).map(x=>String(x).slice(6));if(paths.length)await sb.storage.from("place-photos").remove(paths);let {error}=await sb.from("places").delete().eq("id",p.id);if(error)throw error}
 
+function migrationPath(placeId,localPhotoId,blob){
+ let key=String(localPhotoId).replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,90),type=blob?.type||"image/jpeg",ext=type.includes("png")?"png":type.includes("webp")?"webp":"jpg";
+ return authUser.id+"/"+placeId+"/migrated-"+key+"."+ext
+}
+async function migrateLocalPlaces(){
+ if(!authUser){alert("Sign in before moving Pinpoints to the cloud.");return}
+ let locals=localPlaces();if(!locals.length){$("migrationStatus").textContent="All Pinpoints on this device are already in the cloud.";return}
+ if(!confirm("Move "+locals.length+" local Pinpoint"+(locals.length===1?"":"s")+" to your account? We recommend creating a backup first. Each local place stays in the app until its cloud copy and photos are confirmed."))return;
+ let btn=$("migrateBtn"),status=$("migrationStatus");btn.disabled=true;let done=0;
+ try{
+  for(let p of [...locals]){
+   status.textContent="Moving "+(done+1)+" of "+locals.length+": "+p.name+"…";
+   let {data:existing,error:checkErr}=await sb.from("places").select("id").eq("id",p.id).maybeSingle();if(checkErr)throw checkErr;
+   if(!existing){let {error}=await sb.from("places").insert({id:p.id,owner_id:authUser.id,name:p.name,category:p.category,status:dbStatus(p.status),rating:Number(p.rating||0),notes:p.notes||"",latitude:p.lat,longitude:p.lng,route:p.route||null,visibility:"private",created_at:p.created||new Date().toISOString()});if(error)throw error}
+   for(let localId of (p.photos||[])){
+    if(String(localId).startsWith("cloud:"))continue;
+    let blob=String(localId).startsWith("data:")?dataURLToBlob(localId):await photoGet(localId);if(!blob)throw new Error("A local photo for "+p.name+" could not be read. Nothing local has been removed.");
+    let path=migrationPath(p.id,localId,blob);
+    let {data:rec,error:recErr}=await sb.from("place_photos").select("id").eq("owner_id",authUser.id).eq("place_id",p.id).eq("storage_path",path).maybeSingle();if(recErr)throw recErr;
+    if(!rec){let {error:upErr}=await sb.storage.from("place-photos").upload(path,blob,{contentType:blob.type||"image/jpeg",upsert:true});if(upErr)throw upErr;let {error:rowErr}=await sb.from("place_photos").insert({id:crypto.randomUUID(),place_id:p.id,owner_id:authUser.id,storage_path:path,sort_order:(p.photos||[]).indexOf(localId)});if(rowErr)throw rowErr}
+   }
+   let {data:verified,error:vErr}=await sb.from("places").select("id").eq("id",p.id).maybeSingle();if(vErr||!verified)throw(vErr||new Error("Cloud verification failed"));
+   places=places.filter(x=>!(x.storage!=="cloud"&&x.id===p.id));localStorage.setItem("pinpoint-places",JSON.stringify(localPlaces().map(({storage,...x})=>x)));done++;
+  }
+  await loadCloudPlaces();status.textContent="Complete: "+done+" Pinpoint"+(done===1?"":"s")+" moved to your account.";alert("Cloud migration complete. Your Pinpoints are now linked to your account. Local photo files have been left untouched on this device as an extra safety copy.")
+ }catch(e){console.error(e);localStorage.setItem("pinpoint-places",JSON.stringify(localPlaces().map(({storage,...x})=>x)));await loadCloudPlaces();status.textContent="Stopped after "+done+" of "+locals.length+". No unverified local Pinpoint was removed.";alert("Migration stopped: "+(e?.message||"Please try again."))}finally{btn.disabled=false}
+}
+
 function blobToDataURL(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){let a=s.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"application/octet-stream",b=atob(a[1]),n=b.length,u=new Uint8Array(n);while(n--)u[n]=b.charCodeAt(n);return new Blob([u],{type:m})}
 async function backupLocalData(){
@@ -263,7 +296,7 @@ $("friendsSignIn").onclick=$("profileSignIn").onclick=()=>{$("authPage").classLi
 $("peopleSearch").oninput=()=>{clearTimeout(window._peopleTimer);window._peopleTimer=setTimeout(searchPeople,250)};
 $("followingTab").onclick=()=>{connectionMode="following";$("followingTab").classList.add("on");$("followersTab").classList.remove("on");loadConnections()};
 $("followersTab").onclick=()=>{connectionMode="followers";$("followersTab").classList.add("on");$("followingTab").classList.remove("on");loadConnections()};
-$("avatarBtn").onclick=()=>$("avatarFile").click();$("avatarFile").onchange=e=>uploadAvatar(e.target.files?.[0]);$("editProfileBtn").onclick=editMyProfile;$("backupBtn").onclick=backupLocalData;$("restoreBtn").onclick=()=>$("restoreFile").click();$("restoreFile").onchange=e=>{restoreLocalData(e.target.files?.[0]);e.target.value=""};$("profileSignOut").onclick=async()=>{await sb.auth.signOut();updateAuthUI(null);page("map")};
+$("avatarBtn").onclick=()=>$("avatarFile").click();$("avatarFile").onchange=e=>uploadAvatar(e.target.files?.[0]);$("editProfileBtn").onclick=editMyProfile;$("backupBtn").onclick=backupLocalData;$("restoreBtn").onclick=()=>$("restoreFile").click();$("migrateBtn").onclick=migrateLocalPlaces;$("restoreFile").onchange=e=>{restoreLocalData(e.target.files?.[0]);e.target.value=""};$("profileSignOut").onclick=async()=>{await sb.auth.signOut();updateAuthUI(null);page("map")};
 $("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);satellite.addTo(map);mapStyle="Satellite"}else{map.removeLayer(satellite);explore.addTo(map);mapStyle="Explore"}$("styleBtn").textContent="◫ "+mapStyle};
 $("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.disabled=true;try{
  if(editingId){let p=places.find(x=>x.id===editingId);if(!p)return;let vals={name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),route:draftRoute||p.route||null};
