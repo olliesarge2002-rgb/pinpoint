@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V1.4.4 ROUTE DISTANCES -->
+<title>Pinpoint</title><!-- V1.7.0 CLOUD PLACES + PHOTOS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -93,7 +93,7 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
   <div class="authHead"><div class="authLogo">Pinpoint</div><button class="secondary" id="authClose">Close</button></div>
   <div id="authSignedOut" class="authCard">
     <h1 style="margin:0 0 5px">Your Pinpoint account</h1>
-    <div class="muted" style="margin-bottom:18px">Sign in now; your existing places stay stored on this iPhone for this first cloud milestone.</div>
+    <div class="muted" style="margin-bottom:18px">Sign in to save new Pinpoints and photos securely to your account in the cloud.</div>
     <div class="authTabs"><button id="signInTab" class="on" type="button">Sign in</button><button id="signUpTab" type="button">Create account</button></div>
     <form id="authForm">
       <div class="signupOnly" id="signupFields">
@@ -108,7 +108,7 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
   </div>
   <div id="authSignedIn" class="authCard" style="display:none">
     <div class="muted">Signed in as</div><div class="accountEmail" id="accountEmail"></div>
-    <div class="muted" style="margin-bottom:18px">Your current places, routes and photos are still local only. Cloud migration comes next.</div>
+    <div class="muted" style="margin-bottom:18px">New Pinpoints and photos are saved to your account in the cloud. Existing local Pinpoints remain safely on this device.</div>
     <button class="secondary" id="signOutBtn" style="width:100%">Sign out</button>
   </div>
 </div></div>
@@ -134,7 +134,7 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const CATS=[["Beach","🏖️"],["Viewpoint","⛰️"],["Hike","🥾"],["Restaurant","🍴"],["Attraction","🏛️"],["Accommodation","🛏️"],["Other","📍"]].map(([name,emoji])=>({name,emoji}));
-let places=JSON.parse(localStorage.getItem("pinpoint-places")||"[]").map(p=>({...p,photos:p.photos||[],rating:Number(p.rating||0)}));
+let places=JSON.parse(localStorage.getItem("pinpoint-places")||"[]").map(p=>({...p,photos:p.photos||[],rating:Number(p.rating||0),storage:p.storage||"local"}));
 let filter="All",rating=5,draftPhotos=[],nearName="",nearType="",geoTimer,mapStyle="Explore",currentPlaceId=null,editingId=null,currentGalleryURLs=[],draftRoute=null;
 const $=id=>document.getElementById(id);
 const SUPABASE_URL="https://fqfyzvggzppljxqumpnp.supabase.co";
@@ -144,7 +144,7 @@ let authMode="signin",authUser=null,myProfile=null,connectionMode="following";
 function authMsg(message,type="ok"){let el=$("authMessage");el.textContent=message;el.className="authMessage show "+type}
 function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage").textContent=""}
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
-function updateAuthUI(user){authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";if(authUser)loadMyProfile();else{myProfile=null;$("connections").innerHTML=""}}
+function updateAuthUI(user){authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";if(authUser){loadMyProfile();loadCloudPlaces()}else{myProfile=null;$("connections").innerHTML="";places=places.filter(p=>p.storage!=="cloud");render()}}
 
 function avatarHTML(p,big=false){let cls="avatar"+(big?" big":"");if(p?.avatar_url)return '<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="">';let x=(p?.first_name||p?.username||"P").trim().charAt(0).toUpperCase();return '<div class="'+cls+'">'+esc(x)+'</div>'}
 async function loadMyProfile(){if(!authUser)return;let {data,error}=await sb.from("profiles").select("id,username,first_name,avatar_url").eq("id",authUser.id).maybeSingle();if(error){console.error(error);return}myProfile=data;if(!data){$("myAvatar").outerHTML='<div class="avatar big" id="myAvatar">P</div>';$("myFirstName").textContent="Complete your profile";$("myUsername").textContent="Add a name and @username";$("myEmail").textContent=authUser.email||"";$("editProfileBtn").textContent="Set up profile";return}$("editProfileBtn").textContent="Edit profile";$("myAvatar").outerHTML=avatarHTML(data,true).replace('class="avatar big"','class="avatar big" id="myAvatar"');$("myFirstName").textContent=data.first_name||"—";$("myUsername").textContent="@"+data.username;$("myEmail").textContent=authUser.email||"";loadConnections()}
@@ -166,7 +166,23 @@ const DBNAME="pinpoint-media",STORE="photos";let dbp=new Promise((resolve,reject
 async function photoPut(id,blob){let db=await dbp;return new Promise((res,rej)=>{let tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(blob,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 async function photoGet(id){let db=await dbp;return new Promise((res,rej)=>{let q=db.transaction(STORE).objectStore(STORE).get(id);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
 async function photoDelete(id){let db=await dbp;return new Promise((res,rej)=>{let tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
-async function photoURL(id){if(!id)return"";if(String(id).startsWith("data:"))return id;let b=await photoGet(id);return b?URL.createObjectURL(b):""}
+async function photoURL(id){if(!id)return"";if(String(id).startsWith("data:"))return id;if(String(id).startsWith("cloud:")){if(!authUser)return"";let path=String(id).slice(6);let {data,error}=await sb.storage.from("place-photos").createSignedUrl(path,3600);return error?"":data.signedUrl}let b=await photoGet(id);return b?URL.createObjectURL(b):""}
+function localPlaces(){return places.filter(p=>p.storage!=="cloud")}
+function dbStatus(v){return v==="Visited"?"visited":"want"}
+function uiStatus(v){return v==="visited"?"Visited":"Want to visit"}
+async function loadCloudPlaces(){
+ if(!authUser)return;
+ let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at").eq("owner_id",authUser.id).order("created_at",{ascending:false});
+ if(error){console.error("Cloud places",error);return}
+ let {data:photos,error:pe}=await sb.from("place_photos").select("place_id,storage_path,sort_order").eq("owner_id",authUser.id).order("sort_order",{ascending:true});
+ if(pe){console.error("Cloud photos",pe);photos=[]}
+ let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
+ let cloud=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private"}));
+ places=[...localPlaces(),...cloud];render();
+}
+async function uploadCloudPhotos(placeId,items){let refs=[];for(let i=0;i<items.length;i++){let x=items[i],ext=(x.blob.type||"").includes("png")?"png":"jpg",photoId=crypto.randomUUID(),path=authUser.id+"/"+placeId+"/"+photoId+"."+ext;let {error}=await sb.storage.from("place-photos").upload(path,x.blob,{contentType:x.blob.type||"image/jpeg",upsert:false});if(error)throw error;let {error:re}=await sb.from("place_photos").insert({id:photoId,place_id:placeId,owner_id:authUser.id,storage_path:path,sort_order:i});if(re){await sb.storage.from("place-photos").remove([path]);throw re}refs.push("cloud:"+path)}return refs}
+async function deleteCloudPlace(p){let paths=(p.photos||[]).filter(x=>String(x).startsWith("cloud:")).map(x=>String(x).slice(6));if(paths.length)await sb.storage.from("place-photos").remove(paths);let {error}=await sb.from("places").delete().eq("id",p.id);if(error)throw error}
+
 function blobToDataURL(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){let a=s.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"application/octet-stream",b=atob(a[1]),n=b.length,u=new Uint8Array(n);while(n--)u[n]=b.charCodeAt(n);return new Blob([u],{type:m})}
 async function backupLocalData(){
@@ -202,7 +218,7 @@ function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function emo(c){return(CATS.find(x=>x.name===c)||CATS.at(-1)).emoji}
 function starText(v){let s="";for(let i=1;i<=5;i++)s+=i<=Math.floor(v)?"★":v>=i-.5?"½":"☆";return s}
 function page(w){$("mapPage").classList.toggle("active",w==="map");$("placesPage").classList.toggle("active",w==="places");$("friendsPage").classList.toggle("active",w==="friends");$("profilePage").classList.toggle("active",w==="profile");$("mapBtn").classList.toggle("sel",w==="map");$("placesBtn").classList.toggle("sel",w==="places");$("friendsBtn").classList.toggle("sel",w==="friends");$("profileBtn").classList.toggle("sel",w==="profile");if(w==="map")setTimeout(()=>map.invalidateSize(),30);if(w==="friends"&&authUser)loadConnections();if(w==="profile"&&authUser)loadMyProfile()}
-function save(){localStorage.setItem("pinpoint-places",JSON.stringify(places));render()}
+function save(){localStorage.setItem("pinpoint-places",JSON.stringify(localPlaces().map(({storage,...p})=>p)));render()}
 function renderFilters(){$("filters").innerHTML=["All",...CATS.map(c=>c.name),"Visited","Want to visit"].map(x=>'<button class="chip '+(filter===x?"on":"")+'" data-f="'+x+'">'+(CATS.some(c=>c.name===x)?emo(x)+" ":"")+x+"</button>").join("");document.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;render()})}
 async function render(){
  renderFilters();markers.clearLayers();routes.clearLayers();$("count").textContent=places.length+" "+(places.length===1?"place":"places");$("placeCount").textContent=places.length+" saved "+(places.length===1?"place":"places");
@@ -213,7 +229,7 @@ async function render(){
  $("places").innerHTML=shown.length?shown.map(p=>'<article class="place" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div></div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
  for(let p of shown){if(p.photos?.length){let u=await photoURL(p.photos[0]),c=$("cover-"+p.id);if(c&&u)c.outerHTML='<img class="thumb" src="'+u+'">'}}
  document.querySelectorAll("[data-id]").forEach(el=>el.onclick=e=>{if(e.target.closest(".del"))return;openPlace(el.dataset.id)});
- document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(confirm("Delete this place?")){let p=places.find(x=>x.id===b.dataset.del);for(let id of (p?.photos||[]))if(!String(id).startsWith("data:"))await photoDelete(id);places=places.filter(p=>p.id!==b.dataset.del);save()}})
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(confirm("Delete this place?")){let p=places.find(x=>x.id===b.dataset.del);try{if(p?.storage==="cloud")await deleteCloudPlace(p);else for(let id of (p?.photos||[]))if(!String(id).startsWith("data:")&&!String(id).startsWith("cloud:"))await photoDelete(id);places=places.filter(p=>p.id!==b.dataset.del);if(p?.storage==="cloud")render();else save()}catch(e){console.error(e);alert("This place could not be deleted.")}}})
 }
 async function openPlace(id){let p=places.find(x=>x.id===id);if(!p)return;currentPlaceId=id;let urls=[];for(let x of(p.photos||[])){let u=await photoURL(x);if(u)urls.push(u)}currentGalleryURLs=urls;$("galleryContent").innerHTML=(urls.length?'<div class="heroGallery">'+urls.map((u,i)=>'<img src="'+u+'" data-full="'+i+'">').join("")+'</div>':'<div class="empty" style="margin:14px">No photos yet.</div>')+'<div class="detail"><h1>'+esc(p.name)+'</h1><div class="meta">'+emo(p.category)+' '+esc(p.category)+' · '+esc(p.status)+'</div>'+(p.route?'<div class="detailBlock"><b>↝ Route length</b><div style="font-size:22px;margin-top:6px">'+routeDistance(p.route)+'</div></div>':'')+'<div class="detailBlock"><div class="detailRating">'+starText(p.rating)+' <b>'+p.rating.toFixed(1)+'</b></div></div>'+(p.notes?'<div class="detailBlock"><b>Comments</b><div style="margin-top:8px;white-space:pre-wrap">'+esc(p.notes)+'</div></div>':'')+'</div>';$("galleryPage").classList.add("open");document.querySelectorAll("[data-full]").forEach(x=>x.onclick=()=>openLightbox(+x.dataset.full))}
 function openLightbox(start=0){$("lightboxTrack").innerHTML=currentGalleryURLs.map(u=>'<div class="lightboxSlide"><img src="'+u+'"></div>').join("");$("lightbox").classList.add("open");requestAnimationFrame(()=>{$("lightboxTrack").scrollLeft=start*$("lightboxTrack").clientWidth;updateLightboxCount()})}
@@ -249,7 +265,18 @@ $("followingTab").onclick=()=>{connectionMode="following";$("followingTab").clas
 $("followersTab").onclick=()=>{connectionMode="followers";$("followersTab").classList.add("on");$("followingTab").classList.remove("on");loadConnections()};
 $("avatarBtn").onclick=()=>$("avatarFile").click();$("avatarFile").onchange=e=>uploadAvatar(e.target.files?.[0]);$("editProfileBtn").onclick=editMyProfile;$("backupBtn").onclick=backupLocalData;$("restoreBtn").onclick=()=>$("restoreFile").click();$("restoreFile").onchange=e=>{restoreLocalData(e.target.files?.[0]);e.target.value=""};$("profileSignOut").onclick=async()=>{await sb.auth.signOut();updateAuthUI(null);page("map")};
 $("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);satellite.addTo(map);mapStyle="Satellite"}else{map.removeLayer(satellite);explore.addTo(map);mapStyle="Explore"}$("styleBtn").textContent="◫ "+mapStyle};
-$("form").onsubmit=async e=>{e.preventDefault();let ids=[];try{for(let x of draftPhotos){let id="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(id,x.blob);ids.push(id)}}catch(err){alert("Could not save all photos. Your device may be low on storage.");return}if(editingId){let p=places.find(x=>x.id===editingId);p.name=$("name").value.trim();p.category=$("category").value;p.status=$("status").value;p.rating=rating;p.notes=$("notes").value.trim();p.route=draftRoute||p.route||null;p.photos=[...(p.photos||[]),...ids];save();$("sheet").classList.remove("open");let id=editingId;editingId=null;draftPhotos=[];renderPreviews();await openPlace(id)}else{let c=map.getCenter(),p={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,photos:ids,route:draftRoute,created:new Date().toISOString()};places.unshift(p);save();$("sheet").classList.remove("open");draftPhotos=[];renderPreviews()}$("form").reset();rating=5;renderRate()};
+$("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.disabled=true;try{
+ if(editingId){let p=places.find(x=>x.id===editingId);if(!p)return;let vals={name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),route:draftRoute||p.route||null};
+   if(p.storage==="cloud"){let {error}=await sb.from("places").update({name:vals.name,category:vals.category,status:dbStatus(vals.status),rating:vals.rating,notes:vals.notes,route:vals.route,updated_at:new Date().toISOString()}).eq("id",p.id);if(error)throw error;let refs=await uploadCloudPhotos(p.id,draftPhotos);Object.assign(p,vals);p.photos=[...(p.photos||[]),...refs];render()}
+   else{let ids=[];for(let x of draftPhotos){let id="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(id,x.blob);ids.push(id)}Object.assign(p,vals);p.photos=[...(p.photos||[]),...ids];save()}
+   $("sheet").classList.remove("open");let id=editingId;editingId=null;draftPhotos=[];renderPreviews();await openPlace(id)
+ }else{let c=map.getCenter(),id=crypto.randomUUID?crypto.randomUUID():String(Date.now()),base={id,name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,route:draftRoute,created:new Date().toISOString()};
+   if(authUser){let {error}=await sb.from("places").insert({id,owner_id:authUser.id,name:base.name,category:base.category,status:dbStatus(base.status),rating:base.rating,notes:base.notes,latitude:base.lat,longitude:base.lng,route:base.route,visibility:"private"});if(error)throw error;let refs=[];try{refs=await uploadCloudPhotos(id,draftPhotos)}catch(err){await sb.from("places").delete().eq("id",id);throw err}places.unshift({...base,photos:refs,storage:"cloud",visibility:"private"});render()}
+   else{let ids=[];for(let x of draftPhotos){let pid="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(pid,x.blob);ids.push(pid)}places.unshift({...base,photos:ids,storage:"local"});save()}
+   $("sheet").classList.remove("open");draftPhotos=[];renderPreviews()
+ }
+ $("form").reset();rating=5;renderRate()
+}catch(err){console.error(err);alert("Could not save this place. "+(err?.message||"Please try again."))}finally{if(btn)btn.disabled=false}};
 $("lightboxTrack").onscroll=()=>requestAnimationFrame(updateLightboxCount);$("lightboxClose").onclick=()=>$("lightbox").classList.remove("open");$("editPlace").onclick=beginEdit;$("ratingFilter").onchange=render;$("sort").onchange=render;$("galleryBack").onclick=()=>$("galleryPage").classList.remove("open");
 $("category").innerHTML=CATS.map(c=>'<option value="'+c.name+'">'+c.emoji+" "+c.name+"</option>").join("");renderRate();render();lookup();
 
