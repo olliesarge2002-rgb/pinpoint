@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V1.7.2 PROFILE SCROLL FIX -->
+<title>Pinpoint</title><!-- V1.7.3 CLOUD SESSION RELIABILITY -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -84,11 +84,6 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
       <div class="row" style="margin-top:12px"><button class="secondary" id="backupBtn" style="flex:1">Backup data</button><button class="secondary" id="restoreBtn" style="flex:1">Restore backup</button></div>
       <input id="restoreFile" type="file" accept=".json,application/json" hidden>
       <div class="tinyStatus" id="backupStatus"></div>
-      <div style="border-top:1px solid var(--line);margin:14px 0"></div>
-      <b>Move to cloud</b>
-      <div class="muted" style="margin-top:5px">Move Pinpoints still stored on this device into your signed-in account. Local copies are only removed from the app after each place and all its photos are confirmed in the cloud.</div>
-      <button class="primary" id="migrateBtn" style="margin-top:12px">Move local Pinpoints to cloud</button>
-      <div class="tinyStatus" id="migrationStatus"></div>
     </div>
     <div class="socialCard"><button class="secondary" id="profileSignOut" style="width:100%">Sign out</button></div>
   </div>
@@ -149,7 +144,7 @@ let authMode="signin",authUser=null,myProfile=null,connectionMode="following";
 function authMsg(message,type="ok"){let el=$("authMessage");el.textContent=message;el.className="authMessage show "+type}
 function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage").textContent=""}
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
-function updateAuthUI(user){authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";if(authUser){loadMyProfile();loadCloudPlaces()}else{myProfile=null;$("connections").innerHTML="";places=places.filter(p=>p.storage!=="cloud");render()}}
+function updateAuthUI(user){authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";if(authUser){setTimeout(()=>{if(authUser?.id===user.id){loadMyProfile();loadCloudPlaces(user.id)}},0)}else{myProfile=null;$("connections").innerHTML="";places=places.filter(p=>p.storage!=="cloud");render()}}
 
 function avatarHTML(p,big=false){let cls="avatar"+(big?" big":"");if(p?.avatar_url)return '<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="">';let x=(p?.first_name||p?.username||"P").trim().charAt(0).toUpperCase();return '<div class="'+cls+'">'+esc(x)+'</div>'}
 async function loadMyProfile(){if(!authUser)return;let {data,error}=await sb.from("profiles").select("id,username,first_name,avatar_url").eq("id",authUser.id).maybeSingle();if(error){console.error(error);return}myProfile=data;if(!data){$("myAvatar").outerHTML='<div class="avatar big" id="myAvatar">P</div>';$("myFirstName").textContent="Complete your profile";$("myUsername").textContent="Add a name and @username";$("myEmail").textContent=authUser.email||"";$("editProfileBtn").textContent="Set up profile";return}$("editProfileBtn").textContent="Edit profile";$("myAvatar").outerHTML=avatarHTML(data,true).replace('class="avatar big"','class="avatar big" id="myAvatar"');$("myFirstName").textContent=data.first_name||"—";$("myUsername").textContent="@"+data.username;$("myEmail").textContent=authUser.email||"";loadConnections()}
@@ -175,46 +170,21 @@ async function photoURL(id){if(!id)return"";if(String(id).startsWith("data:"))re
 function localPlaces(){return places.filter(p=>p.storage!=="cloud")}
 function dbStatus(v){return v==="Visited"?"visited":"want"}
 function uiStatus(v){return v==="visited"?"Visited":"Want to visit"}
-async function loadCloudPlaces(){
- if(!authUser)return;
- let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at").eq("owner_id",authUser.id).order("created_at",{ascending:false});
- if(error){console.error("Cloud places",error);return}
- let {data:photos,error:pe}=await sb.from("place_photos").select("place_id,storage_path,sort_order").eq("owner_id",authUser.id).order("sort_order",{ascending:true});
+async function loadCloudPlaces(ownerId=authUser?.id){
+ if(!ownerId||authUser?.id!==ownerId)return;
+ let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at").eq("owner_id",ownerId).order("created_at",{ascending:false});
+ if(error){console.error("Cloud places",error);alert("Pinpoint could not load your cloud places. Please check your connection and try again.");return}
+ if(authUser?.id!==ownerId)return;
+ let {data:photos,error:pe}=await sb.from("place_photos").select("place_id,storage_path,sort_order").eq("owner_id",ownerId).order("sort_order",{ascending:true});
+ if(authUser?.id!==ownerId)return;
  if(pe){console.error("Cloud photos",pe);photos=[]}
  let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
  let cloud=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private"}));
- places=[...localPlaces(),...cloud];render();
+ places=[...localPlaces(),...cloud];await render();
 }
 async function uploadCloudPhotos(placeId,items){let refs=[];for(let i=0;i<items.length;i++){let x=items[i],ext=(x.blob.type||"").includes("png")?"png":"jpg",photoId=crypto.randomUUID(),path=authUser.id+"/"+placeId+"/"+photoId+"."+ext;let {error}=await sb.storage.from("place-photos").upload(path,x.blob,{contentType:x.blob.type||"image/jpeg",upsert:false});if(error)throw error;let {error:re}=await sb.from("place_photos").insert({id:photoId,place_id:placeId,owner_id:authUser.id,storage_path:path,sort_order:i});if(re){await sb.storage.from("place-photos").remove([path]);throw re}refs.push("cloud:"+path)}return refs}
 async function deleteCloudPlace(p){let paths=(p.photos||[]).filter(x=>String(x).startsWith("cloud:")).map(x=>String(x).slice(6));if(paths.length)await sb.storage.from("place-photos").remove(paths);let {error}=await sb.from("places").delete().eq("id",p.id);if(error)throw error}
 
-function migrationPath(placeId,localPhotoId,blob){
- let key=String(localPhotoId).replace(/[^a-zA-Z0-9_-]/g,"_").slice(0,90),type=blob?.type||"image/jpeg",ext=type.includes("png")?"png":type.includes("webp")?"webp":"jpg";
- return authUser.id+"/"+placeId+"/migrated-"+key+"."+ext
-}
-async function migrateLocalPlaces(){
- if(!authUser){alert("Sign in before moving Pinpoints to the cloud.");return}
- let locals=localPlaces();if(!locals.length){$("migrationStatus").textContent="All Pinpoints on this device are already in the cloud.";return}
- if(!confirm("Move "+locals.length+" local Pinpoint"+(locals.length===1?"":"s")+" to your account? We recommend creating a backup first. Each local place stays in the app until its cloud copy and photos are confirmed."))return;
- let btn=$("migrateBtn"),status=$("migrationStatus");btn.disabled=true;let done=0;
- try{
-  for(let p of [...locals]){
-   status.textContent="Moving "+(done+1)+" of "+locals.length+": "+p.name+"…";
-   let {data:existing,error:checkErr}=await sb.from("places").select("id").eq("id",p.id).maybeSingle();if(checkErr)throw checkErr;
-   if(!existing){let {error}=await sb.from("places").insert({id:p.id,owner_id:authUser.id,name:p.name,category:p.category,status:dbStatus(p.status),rating:Number(p.rating||0),notes:p.notes||"",latitude:p.lat,longitude:p.lng,route:p.route||null,visibility:"private",created_at:p.created||new Date().toISOString()});if(error)throw error}
-   for(let localId of (p.photos||[])){
-    if(String(localId).startsWith("cloud:"))continue;
-    let blob=String(localId).startsWith("data:")?dataURLToBlob(localId):await photoGet(localId);if(!blob)throw new Error("A local photo for "+p.name+" could not be read. Nothing local has been removed.");
-    let path=migrationPath(p.id,localId,blob);
-    let {data:rec,error:recErr}=await sb.from("place_photos").select("id").eq("owner_id",authUser.id).eq("place_id",p.id).eq("storage_path",path).maybeSingle();if(recErr)throw recErr;
-    if(!rec){let {error:upErr}=await sb.storage.from("place-photos").upload(path,blob,{contentType:blob.type||"image/jpeg",upsert:true});if(upErr)throw upErr;let {error:rowErr}=await sb.from("place_photos").insert({id:crypto.randomUUID(),place_id:p.id,owner_id:authUser.id,storage_path:path,sort_order:(p.photos||[]).indexOf(localId)});if(rowErr)throw rowErr}
-   }
-   let {data:verified,error:vErr}=await sb.from("places").select("id").eq("id",p.id).maybeSingle();if(vErr||!verified)throw(vErr||new Error("Cloud verification failed"));
-   places=places.filter(x=>!(x.storage!=="cloud"&&x.id===p.id));localStorage.setItem("pinpoint-places",JSON.stringify(localPlaces().map(({storage,...x})=>x)));done++;
-  }
-  await loadCloudPlaces();status.textContent="Complete: "+done+" Pinpoint"+(done===1?"":"s")+" moved to your account.";alert("Cloud migration complete. Your Pinpoints are now linked to your account. Local photo files have been left untouched on this device as an extra safety copy.")
- }catch(e){console.error(e);localStorage.setItem("pinpoint-places",JSON.stringify(localPlaces().map(({storage,...x})=>x)));await loadCloudPlaces();status.textContent="Stopped after "+done+" of "+locals.length+". No unverified local Pinpoint was removed.";alert("Migration stopped: "+(e?.message||"Please try again."))}finally{btn.disabled=false}
-}
 
 function blobToDataURL(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){let a=s.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"application/octet-stream",b=atob(a[1]),n=b.length,u=new Uint8Array(n);while(n--)u[n]=b.charCodeAt(n);return new Blob([u],{type:m})}
@@ -296,7 +266,7 @@ $("friendsSignIn").onclick=$("profileSignIn").onclick=()=>{$("authPage").classLi
 $("peopleSearch").oninput=()=>{clearTimeout(window._peopleTimer);window._peopleTimer=setTimeout(searchPeople,250)};
 $("followingTab").onclick=()=>{connectionMode="following";$("followingTab").classList.add("on");$("followersTab").classList.remove("on");loadConnections()};
 $("followersTab").onclick=()=>{connectionMode="followers";$("followersTab").classList.add("on");$("followingTab").classList.remove("on");loadConnections()};
-$("avatarBtn").onclick=()=>$("avatarFile").click();$("avatarFile").onchange=e=>uploadAvatar(e.target.files?.[0]);$("editProfileBtn").onclick=editMyProfile;$("backupBtn").onclick=backupLocalData;$("restoreBtn").onclick=()=>$("restoreFile").click();$("migrateBtn").onclick=migrateLocalPlaces;$("restoreFile").onchange=e=>{restoreLocalData(e.target.files?.[0]);e.target.value=""};$("profileSignOut").onclick=async()=>{await sb.auth.signOut();updateAuthUI(null);page("map")};
+$("avatarBtn").onclick=()=>$("avatarFile").click();$("avatarFile").onchange=e=>uploadAvatar(e.target.files?.[0]);$("editProfileBtn").onclick=editMyProfile;$("backupBtn").onclick=backupLocalData;$("restoreBtn").onclick=()=>$("restoreFile").click();$("restoreFile").onchange=e=>{restoreLocalData(e.target.files?.[0]);e.target.value=""};$("profileSignOut").onclick=async()=>{await sb.auth.signOut();updateAuthUI(null);page("map")};
 $("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);satellite.addTo(map);mapStyle="Satellite"}else{map.removeLayer(satellite);explore.addTo(map);mapStyle="Explore"}$("styleBtn").textContent="◫ "+mapStyle};
 $("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.disabled=true;try{
  if(editingId){let p=places.find(x=>x.id===editingId);if(!p)return;let vals={name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),route:draftRoute||p.route||null};
@@ -304,7 +274,7 @@ $("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.
    else{let ids=[];for(let x of draftPhotos){let id="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(id,x.blob);ids.push(id)}Object.assign(p,vals);p.photos=[...(p.photos||[]),...ids];save()}
    $("sheet").classList.remove("open");let id=editingId;editingId=null;draftPhotos=[];renderPreviews();await openPlace(id)
  }else{let c=map.getCenter(),id=crypto.randomUUID?crypto.randomUUID():String(Date.now()),base={id,name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,route:draftRoute,created:new Date().toISOString()};
-   if(authUser){let {error}=await sb.from("places").insert({id,owner_id:authUser.id,name:base.name,category:base.category,status:dbStatus(base.status),rating:base.rating,notes:base.notes,latitude:base.lat,longitude:base.lng,route:base.route,visibility:"private"});if(error)throw error;let refs=[];try{refs=await uploadCloudPhotos(id,draftPhotos)}catch(err){await sb.from("places").delete().eq("id",id);throw err}places.unshift({...base,photos:refs,storage:"cloud",visibility:"private"});render()}
+   if(authUser){let {error}=await sb.from("places").insert({id,owner_id:authUser.id,name:base.name,category:base.category,status:dbStatus(base.status),rating:base.rating,notes:base.notes,latitude:base.lat,longitude:base.lng,route:base.route,visibility:"private"});if(error)throw error;let refs=[];try{refs=await uploadCloudPhotos(id,draftPhotos)}catch(err){await sb.from("places").delete().eq("id",id);throw err}places.unshift({...base,photos:refs,storage:"cloud",visibility:"private"});await loadCloudPlaces(authUser.id)}
    else{let ids=[];for(let x of draftPhotos){let pid="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(pid,x.blob);ids.push(pid)}places.unshift({...base,photos:ids,storage:"local"});save()}
    $("sheet").classList.remove("open");draftPhotos=[];renderPreviews()
  }
