@@ -1,4 +1,4 @@
-const CACHE="pinpoint-v36-stage1a";
+const CACHE="pinpoint-v36-stage1";
 const CORE=["./","./index.html","./manifest.webmanifest","./pinpoint-wordmark.png","./icon-192.png","./icon-512.png","./apple-touch-icon.png"];
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE).catch(()=>{})))});
 self.addEventListener("activate",e=>{e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()]))});
