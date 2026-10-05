@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V1.7.6 VERIFIED CLOUD PERSISTENCE -->
+<title>Pinpoint</title><!-- V1.7.7 INSTANT LOCAL-FIRST CLOUD SYNC -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -146,8 +146,8 @@ function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage"
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
 function updateAuthUI(user){
  authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";
- if(authUser){let uid=authUser.id;places=localPlaces();render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid)},0)}
- else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=localPlaces();render()}
+ if(authUser){let uid=authUser.id;places=[...localPlaces(),...outboxPlaces()];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid);syncOutbox()},0)}
+ else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=[...localPlaces(),...outboxPlaces()];render()}
 }
 
 function avatarHTML(p,big=false){let cls="avatar"+(big?" big":"");if(p?.avatar_url)return '<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="">';let x=(p?.first_name||p?.username||"P").trim().charAt(0).toUpperCase();return '<div class="'+cls+'">'+esc(x)+'</div>'}
@@ -171,7 +171,44 @@ async function photoPut(id,blob){let db=await dbp;return new Promise((res,rej)=>
 async function photoGet(id){let db=await dbp;return new Promise((res,rej)=>{let q=db.transaction(STORE).objectStore(STORE).get(id);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
 async function photoDelete(id){let db=await dbp;return new Promise((res,rej)=>{let tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 async function photoURL(id){if(!id)return"";if(String(id).startsWith("data:"))return id;if(String(id).startsWith("cloud:")){if(!authUser)return"";let path=String(id).slice(6);let {data,error}=await sb.storage.from("place-photos").createSignedUrl(path,3600);return error?"":data.signedUrl}let b=await photoGet(id);return b?URL.createObjectURL(b):""}
-function localPlaces(){return places.filter(p=>p.storage!=="cloud")}
+function localPlaces(){return places.filter(p=>p.storage!=="cloud"&&p.storage!=="pending")}
+const OUTBOX_KEY="pinpoint-cloud-outbox-v1";
+function readOutbox(){try{return JSON.parse(localStorage.getItem(OUTBOX_KEY)||"[]")}catch(e){return[]}}
+function writeOutbox(v){localStorage.setItem(OUTBOX_KEY,JSON.stringify(v))}
+function outboxPlaces(){return readOutbox().map(p=>({...p,storage:"pending",syncing:true}))}
+async function queueCloudPlace(base,items){
+ let photoIds=[];
+ for(let x of items){let pid="out-"+crypto.randomUUID();await photoPut(pid,x.blob);photoIds.push(pid)}
+ let q=readOutbox();q=q.filter(x=>x.id!==base.id);q.unshift({...base,photos:photoIds,visibility:"private"});writeOutbox(q);
+ return {...base,photos:photoIds,storage:"pending",visibility:"private",syncing:true}
+}
+async function removeOutboxPlace(id){
+ let q=readOutbox(),p=q.find(x=>x.id===id);writeOutbox(q.filter(x=>x.id!==id));
+ for(let pid of(p?.photos||[]))await photoDelete(pid).catch(()=>{})
+}
+let syncRunning=false;
+async function syncOutbox(){
+ if(syncRunning||!authUser)return;syncRunning=true;let ownerId=authUser.id;
+ try{
+  for(let item of [...readOutbox()]){
+   if(authUser?.id!==ownerId)break;
+   try{
+    await retryCloud(async()=>{let r=await sb.from("places").upsert({id:item.id,owner_id:ownerId,name:item.name,category:item.category,status:dbStatus(item.status),rating:item.rating,notes:item.notes,latitude:item.lat,longitude:item.lng,route:item.route,visibility:"private"},{onConflict:"id"});if(r.error)throw r.error},2);
+    await verifyCloudPlace(ownerId,item.id);
+    let existing=await sb.from("place_photos").select("id").eq("owner_id",ownerId).eq("place_id",item.id);if(existing.error)throw existing.error;
+    if((existing.data||[]).length<(item.photos||[]).length){
+      let uploads=[];for(let pid of(item.photos||[])){let blob=await photoGet(pid);if(blob)uploads.push({blob,url:""})}
+      await uploadCloudPhotos(item.id,uploads)
+    }
+    await verifyCloudPhotos(ownerId,item.id,(item.photos||[]).length);
+    await removeOutboxPlace(item.id);
+    let p=places.find(x=>x.id===item.id);if(p){p.syncing=false;p.storage="cloud"}
+    cloudToast("Saved to cloud")
+   }catch(e){console.error("Background sync",e);let p=places.find(x=>x.id===item.id);if(p){p.syncing=true}cloudToast("Saved on device · cloud retry pending",3200)}
+  }
+  if(authUser?.id===ownerId)await loadCloudPlaces(ownerId)
+ }finally{syncRunning=false}
+}
 function dbStatus(v){return v==="Visited"?"visited":"want"}
 function uiStatus(v){return v==="visited"?"Visited":"Want to visit"}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
@@ -195,7 +232,8 @@ async function loadCloudPlaces(ownerId=authUser?.id){
  if(pe){console.error("Cloud photos",pe);photos=[]}
  let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
  let cloud=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private"}));
- places=[...localPlaces(),...cloud];await render();
+ let pending=outboxPlaces(),pendingIds=new Set(pending.map(x=>x.id));
+ places=[...localPlaces(),...pending,...cloud.filter(x=>!pendingIds.has(x.id))];await render();
 }
 async function uploadCloudPhotos(placeId,items){
  if(!items.length)return[];
@@ -272,7 +310,7 @@ async function render(){
  $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?'<div class="syncBadge">Uploading…</div>':'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
  for(let p of shown){if(p.photos?.length){let u=await photoURL(p.photos[0]),c=$("cover-"+p.id);if(c&&u)c.outerHTML='<img class="thumb" src="'+u+'">'}}
  document.querySelectorAll("[data-id]").forEach(el=>el.onclick=e=>{if(e.target.closest(".del"))return;openPlace(el.dataset.id)});
- document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{if(p.storage==="cloud")await deleteCloudPlace(p);else{for(let id of(p.photos||[]))if(!String(id).startsWith("data:")&&!String(id).startsWith("cloud:"))await photoDelete(id);places=places.filter(x=>x.id!==p.id);save();cloudToast("Deleted")}}catch(e){console.error(e);b.disabled=false;b.textContent="×";alert("Delete could not be completed, so the place has been restored. Please try again.")}})
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{if(p.storage==="cloud")await deleteCloudPlace(p);else if(p.storage==="pending"){places=places.filter(x=>x.id!==p.id);await render();await removeOutboxPlace(p.id);cloudToast("Deleted");if(authUser)sb.from("places").delete().eq("id",p.id).eq("owner_id",authUser.id).then(()=>{})}else{for(let id of(p.photos||[]))if(!String(id).startsWith("data:")&&!String(id).startsWith("cloud:"))await photoDelete(id);places=places.filter(x=>x.id!==p.id);save();cloudToast("Deleted")}}catch(e){console.error(e);b.disabled=false;b.textContent="×";alert("Delete could not be completed, so the place has been restored. Please try again.")}})
 }
 async function openPlace(id){let p=places.find(x=>x.id===id);if(!p)return;currentPlaceId=id;let urls=[];for(let x of(p.photos||[])){let u=await photoURL(x);if(u)urls.push(u)}currentGalleryURLs=urls;$("galleryContent").innerHTML=(urls.length?'<div class="heroGallery">'+urls.map((u,i)=>'<img src="'+u+'" data-full="'+i+'">').join("")+'</div>':'<div class="empty" style="margin:14px">No photos yet.</div>')+'<div class="detail"><h1>'+esc(p.name)+'</h1><div class="meta">'+emo(p.category)+' '+esc(p.category)+' · '+esc(p.status)+'</div>'+(p.route?'<div class="detailBlock"><b>↝ Route length</b><div style="font-size:22px;margin-top:6px">'+routeDistance(p.route)+'</div></div>':'')+'<div class="detailBlock"><div class="detailRating">'+starText(p.rating)+' <b>'+p.rating.toFixed(1)+'</b></div></div>'+(p.notes?'<div class="detailBlock"><b>Comments</b><div style="margin-top:8px;white-space:pre-wrap">'+esc(p.notes)+'</div></div>':'')+'</div>';$("galleryPage").classList.add("open");document.querySelectorAll("[data-full]").forEach(x=>x.onclick=()=>openLightbox(+x.dataset.full))}
 function openLightbox(start=0){$("lightboxTrack").innerHTML=currentGalleryURLs.map(u=>'<div class="lightboxSlide"><img src="'+u+'"></div>').join("");$("lightbox").classList.add("open");requestAnimationFrame(()=>{$("lightboxTrack").scrollLeft=start*$("lightboxTrack").clientWidth;updateLightboxCount()})}
@@ -315,24 +353,12 @@ $("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.
    $("sheet").classList.remove("open");let id=editingId;editingId=null;draftPhotos=[];renderPreviews();await openPlace(id)
  }else{let c=map.getCenter(),id=crypto.randomUUID?crypto.randomUUID():String(Date.now()),base={id,name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,route:draftRoute,created:new Date().toISOString()};
    if(authUser){
-    let ownerId=authUser.id,queuedPhotos=[...draftPhotos],previewRefs=queuedPhotos.map(x=>x.url);
-    let optimistic={...base,photos:previewRefs,storage:"cloud",visibility:"private",syncing:true};
-    places.unshift(optimistic);$("sheet").classList.remove("open");draftPhotos=[];renderPreviews();await render();cloudToast("Added · uploading…",2200);
-    try{
-      await retryCloud(async()=>{let r=await sb.from("places").upsert({id,owner_id:ownerId,name:base.name,category:base.category,status:dbStatus(base.status),rating:base.rating,notes:base.notes,latitude:base.lat,longitude:base.lng,route:base.route,visibility:"private"},{onConflict:"id"});if(r.error)throw r.error},2);
-      await verifyCloudPlace(ownerId,id);
-      let refs=await uploadCloudPhotos(id,queuedPhotos);
-      await verifyCloudPhotos(ownerId,id,queuedPhotos.length);
-      let p=places.find(x=>x.id===id);if(p){p.photos=refs;p.syncing=false;await render()}
-      await loadCloudPlaces(ownerId);
-      if(!places.some(x=>x.id===id&&x.storage==="cloud"))throw new Error("Saved place did not return from cloud.");
-      cloudToast("Saved to cloud");
-    }catch(err){
-      console.error("Cloud create",err);
-      let p=places.find(x=>x.id===id);if(p){p.syncing=false;p.photos=[];await render()}
-      alert("The place is visible, but cloud upload did not finish. Pinpoint will reload your confirmed cloud data now.");
-      await loadCloudPlaces(ownerId)
-    }
+    let queuedPhotos=[...draftPhotos];
+    let optimistic=await queueCloudPlace(base,queuedPhotos);
+    places=places.filter(x=>x.id!==id);places.unshift(optimistic);
+    $("sheet").classList.remove("open");draftPhotos=[];renderPreviews();await render();
+    cloudToast("Added · syncing…",1800);
+    syncOutbox();
    }
    else{let ids=[];for(let x of draftPhotos){let pid="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(pid,x.blob);ids.push(pid)}places.unshift({...base,photos:ids,storage:"local"});save()}
    $("sheet").classList.remove("open");draftPhotos=[];renderPreviews()
@@ -340,7 +366,7 @@ $("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.
  $("form").reset();rating=5;renderRate()
 }catch(err){console.error(err);alert("Could not save this place. "+(err?.message||"Please try again."))}finally{if(btn)btn.disabled=false}};
 $("lightboxTrack").onscroll=()=>requestAnimationFrame(updateLightboxCount);$("lightboxClose").onclick=()=>$("lightbox").classList.remove("open");$("editPlace").onclick=beginEdit;$("ratingFilter").onchange=render;$("sort").onchange=render;$("galleryBack").onclick=()=>$("galleryPage").classList.remove("open");
-$("category").innerHTML=CATS.map(c=>'<option value="'+c.name+'">'+c.emoji+" "+c.name+"</option>").join("");renderRate();render();lookup();
+places=[...localPlaces(),...outboxPlaces()];$("category").innerHTML=CATS.map(c=>'<option value="'+c.name+'">'+c.emoji+" "+c.name+"</option>").join("");renderRate();render();lookup();
 
 $("accountBtn").onclick=()=>{$("authPage").classList.add("open");clearAuthMsg()};
 $("authClose").onclick=()=>$("authPage").classList.remove("open");
