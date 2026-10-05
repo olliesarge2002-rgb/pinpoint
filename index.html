@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V1.7.8 RESILIENT SYNC + DELETE TOMBSTONES -->
+<title>Pinpoint</title><!-- V1.8.0 DIRECT CLOUD WRITE -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -146,7 +146,7 @@ function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage"
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
 function updateAuthUI(user){
  authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";
- if(authUser){let uid=authUser.id;places=[...localPlaces().filter(x=>!isDeletedId(x.id)),...outboxPlaces()];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await processDeletes();await loadCloudPlaces(uid);syncOutbox()},0)}
+ if(authUser){let uid=authUser.id;places=[...localPlaces().filter(x=>!isDeletedId(x.id)),...outboxPlaces()];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await processDeletes();await loadCloudPlaces(uid);flushPending()},0)}
  else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=[...localPlaces(),...outboxPlaces()];render()}
 }
 
@@ -170,7 +170,8 @@ const DBNAME="pinpoint-media",STORE="photos";let dbp=new Promise((resolve,reject
 async function photoPut(id,blob){let db=await dbp;return new Promise((res,rej)=>{let tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(blob,id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 async function photoGet(id){let db=await dbp;return new Promise((res,rej)=>{let q=db.transaction(STORE).objectStore(STORE).get(id);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}
 async function photoDelete(id){let db=await dbp;return new Promise((res,rej)=>{let tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
-async function photoURL(id){if(!id)return"";if(String(id).startsWith("data:"))return id;if(String(id).startsWith("cloud:")){if(!authUser)return"";let path=String(id).slice(6);let {data,error}=await sb.storage.from("place-photos").createSignedUrl(path,3600);return error?"":data.signedUrl}let b=await photoGet(id);return b?URL.createObjectURL(b):""}
+const signedPhotoCache=new Map();
+async function photoURL(id){if(!id)return"";if(String(id).startsWith("data:"))return id;if(String(id).startsWith("cloud:")){if(!authUser)return"";let path=String(id).slice(6);if(signedPhotoCache.has(path))return signedPhotoCache.get(path);let {data,error}=await sb.storage.from("place-photos").createSignedUrl(path,3600);if(error)return"";signedPhotoCache.set(path,data.signedUrl);return data.signedUrl}let b=await photoGet(id);return b?URL.createObjectURL(b):""}
 function localPlaces(){return places.filter(p=>p.storage!=="cloud"&&p.storage!=="pending")}
 const OUTBOX_KEY="pinpoint-cloud-outbox-v1";
 const DELETE_KEY="pinpoint-cloud-deletes-v1";
@@ -179,78 +180,79 @@ function writeOutbox(v){localStorage.setItem(OUTBOX_KEY,JSON.stringify(v))}
 function readDeletes(){try{return JSON.parse(localStorage.getItem(DELETE_KEY)||"[]")}catch(e){return[]}}
 function writeDeletes(v){localStorage.setItem(DELETE_KEY,JSON.stringify([...new Set(v)]))}
 function isDeletedId(id){return readDeletes().includes(id)}
-function outboxPlaces(){return readOutbox().filter(p=>!isDeletedId(p.id)).map(p=>({...p,storage:"pending",syncing:true}))}
-async function queueCloudPlace(base,items){
+function pendingPhotoIds(p){return (p.photos||[]).map(x=>typeof x==="string"?x:x.localId).filter(Boolean)}
+function outboxPlaces(){return readOutbox().filter(p=>!isDeletedId(p.id)).map(p=>({...p,photos:pendingPhotoIds(p),storage:"pending",syncing:true}))}
+async function stageCloudPlace(base,items){
  let photos=[];
- for(let i=0;i<items.length;i++){let localId="out-"+crypto.randomUUID(),cloudId=crypto.randomUUID();await photoPut(localId,items[i].blob);photos.push({localId,cloudId,sort:i,type:items[i].blob.type||"image/jpeg"})}
+ for(let i=0;i<items.length;i++){let localId="out-"+crypto.randomUUID();await photoPut(localId,items[i].blob);photos.push({localId,sort:i,type:items[i].blob.type||"image/jpeg"})}
  let q=readOutbox().filter(x=>x.id!==base.id);q.unshift({...base,photos,visibility:"private"});writeOutbox(q);
  return {...base,photos:photos.map(x=>x.localId),storage:"pending",visibility:"private",syncing:true}
 }
 async function clearOutboxPlace(id){
  let q=readOutbox(),p=q.find(x=>x.id===id);writeOutbox(q.filter(x=>x.id!==id));
- for(let ph of(p?.photos||[])){let localId=typeof ph==="string"?ph:ph.localId;if(localId)await photoDelete(localId).catch(()=>{})}
+ for(let localId of pendingPhotoIds(p||{}))await photoDelete(localId).catch(()=>{})
 }
-async function normalizeOutbox(){
- let q=readOutbox(),changed=false;
- for(let p of q){
-  if(!Array.isArray(p.photos))p.photos=[];
-  p.photos=p.photos.map((ph,i)=>{if(typeof ph==="string"){changed=true;return{localId:ph,cloudId:crypto.randomUUID(),sort:i,type:"image/jpeg"}}return ph})
+async function directUploadPlace(item){
+ if(!authUser)throw new Error("Not signed in");
+ let ownerId=authUser.id;
+ let placeRow={id:item.id,owner_id:ownerId,name:item.name,category:item.category,status:dbStatus(item.status),rating:Number(item.rating||0),notes:item.notes||"",latitude:item.lat,longitude:item.lng,route:item.route||null,visibility:"private",updated_at:new Date().toISOString()};
+ let pr=await sb.from("places").upsert(placeRow,{onConflict:"id"});if(pr.error)throw pr.error;
+
+ let old=await sb.from("place_photos").select("id,storage_path").eq("place_id",item.id).eq("owner_id",ownerId);if(old.error)throw old.error;
+ let existing=old.data||[];
+ let staged=item.photos||[];
+ let done=existing.slice();
+ let missing=Math.max(0,staged.length-existing.length);
+ if(missing){
+  let jobs=[];
+  for(let i=existing.length;i<staged.length;i++)jobs.push((async()=>{
+    let ph=staged[i],localId=typeof ph==="string"?ph:ph.localId,blob=await photoGet(localId);
+    if(!blob)throw new Error("A staged photo is missing");
+    let photoId=crypto.randomUUID(),ext=mimeExt((typeof ph==="object"&&ph.type)||blob.type),path=ownerId+"/"+item.id+"/"+photoId+"."+ext;
+    let up=await sb.storage.from("place-photos").upload(path,blob,{contentType:blob.type||"image/jpeg",upsert:false});if(up.error)throw up.error;
+    let mr=await sb.from("place_photos").insert({id:photoId,place_id:item.id,owner_id:ownerId,storage_path:path,sort_order:i});
+    if(mr.error){await sb.storage.from("place-photos").remove([path]).catch(()=>{});throw mr.error}
+    return{id:photoId,storage_path:path}
+  })());
+  done.push(...await Promise.all(jobs))
  }
- if(changed)writeOutbox(q)
+ await clearOutboxPlace(item.id);
+ return done.map(x=>"cloud:"+x.storage_path)
 }
-let syncRunning=false,syncAgain=false;
-async function syncOnePhoto(ownerId,item,ph){
- let meta=await sb.from("place_photos").select("id,storage_path").eq("id",ph.cloudId).eq("owner_id",ownerId).maybeSingle();
- if(meta.error)throw meta.error;
- if(meta.data)return "cloud:"+meta.data.storage_path;
- let blob=await photoGet(ph.localId);if(!blob)throw new Error("Queued photo is missing from this device.");
- let ext=mimeExt(ph.type||blob.type),path=ownerId+"/"+item.id+"/"+ph.cloudId+"."+ext;
- let up=await sb.storage.from("place-photos").upload(path,blob,{contentType:ph.type||blob.type||"image/jpeg",upsert:true});if(up.error)throw up.error;
- let row=await sb.from("place_photos").upsert({id:ph.cloudId,place_id:item.id,owner_id:ownerId,storage_path:path,sort_order:ph.sort||0},{onConflict:"id"});if(row.error)throw row.error;
- return "cloud:"+path
-}
-async function syncOutbox(){
- if(syncRunning){syncAgain=true;return}
- if(!authUser)return;
+let syncRunning=false;
+async function flushPending(){
+ if(syncRunning||!authUser)return;
  syncRunning=true;let ownerId=authUser.id;
  try{
-  await normalizeOutbox();
   for(let item of [...readOutbox()]){
    if(authUser?.id!==ownerId)break;
    if(isDeletedId(item.id)){await clearOutboxPlace(item.id);continue}
    try{
-    let r=await sb.from("places").upsert({id:item.id,owner_id:ownerId,name:item.name,category:item.category,status:dbStatus(item.status),rating:item.rating,notes:item.notes,latitude:item.lat,longitude:item.lng,route:item.route,visibility:"private"},{onConflict:"id"});if(r.error)throw r.error;
-    await verifyCloudPlace(ownerId,item.id);
-    for(let ph of item.photos||[])await syncOnePhoto(ownerId,item,ph);
-    await verifyCloudPhotos(ownerId,item.id,(item.photos||[]).length);
-    await clearOutboxPlace(item.id);
-    let p=places.find(x=>x.id===item.id);if(p){p.syncing=false;p.storage="cloud"}
-    cloudToast("Saved to cloud")
-   }catch(e){console.error("Background sync",item.id,e);let p=places.find(x=>x.id===item.id);if(p)p.syncing=true}
+    let refs=await directUploadPlace(item);
+    let p=places.find(x=>x.id===item.id);if(p){p.photos=refs;p.storage="cloud";p.syncing=false}
+    await render();cloudToast("Saved to cloud")
+   }catch(e){console.error("Direct cloud upload",item.id,e)}
   }
   if(authUser?.id===ownerId)await loadCloudPlaces(ownerId)
- }finally{
-  syncRunning=false;
-  if(syncAgain){syncAgain=false;setTimeout(syncOutbox,100)}
- }
+ }finally{syncRunning=false}
 }
 async function processDeletes(){
  if(!authUser)return;
- let ownerId=authUser.id,ids=[...readDeletes()];
- for(let id of ids){
+ let ownerId=authUser.id;
+ for(let id of [...readDeletes()]){
   try{
+   let paths=await sb.from("place_photos").select("storage_path").eq("place_id",id).eq("owner_id",ownerId);
    let q=await sb.from("places").delete().eq("id",id).eq("owner_id",ownerId);if(q.error)throw q.error;
-   let check=await sb.from("places").select("id").eq("id",id).eq("owner_id",ownerId).maybeSingle();if(check.error)throw check.error;
-   if(!check.data){writeDeletes(readDeletes().filter(x=>x!==id));await clearOutboxPlace(id)}
-  }catch(e){console.error("Pending delete",id,e)}
+   if(paths.data?.length)await sb.storage.from("place-photos").remove(paths.data.map(x=>x.storage_path)).catch(()=>{});
+   writeDeletes(readDeletes().filter(x=>x!==id));await clearOutboxPlace(id)
+  }catch(e){console.error("Delete retry",id,e)}
  }
 }
 async function deletePlaceInstant(p){
- let id=p.id;
- writeDeletes([...readDeletes(),id]);
- places=places.filter(x=>x.id!==id);await render();cloudToast("Deleted");
- if(p.storage==="pending")await clearOutboxPlace(id);
- if(authUser){await processDeletes();await loadCloudPlaces(authUser.id)}
+ writeDeletes([...readDeletes(),p.id]);
+ places=places.filter(x=>x.id!==p.id);await render();cloudToast("Deleted");
+ await clearOutboxPlace(p.id);
+ if(authUser)processDeletes()
 }
 function dbStatus(v){return v==="Visited"?"visited":"want"}
 function uiStatus(v){return v==="visited"?"Visited":"Want to visit"}
@@ -350,7 +352,7 @@ async function render(){
  let q=$("search").value.trim().toLowerCase(),min=+$("ratingFilter").value;
  let shown=places.filter(p=>(filter==="All"||p.category===filter||p.status===filter)&&p.rating>=min&&(!q||[p.name,p.category,p.status,p.notes].join(" ").toLowerCase().includes(q)));
  let sort=$("sort").value;if(sort==="high")shown.sort((a,b)=>b.rating-a.rating);if(sort==="low")shown.sort((a,b)=>a.rating-b.rating);if(sort==="name")shown.sort((a,b)=>a.name.localeCompare(b.name));if(sort==="new")shown.sort((a,b)=>String(b.created).localeCompare(String(a.created)));
- $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?'<div class="syncBadge">Syncing…</div>':'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
+ $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?'<div class="syncBadge">Saving…</div>':'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
  for(let p of shown){if(p.photos?.length){let u=await photoURL(p.photos[0]),c=$("cover-"+p.id);if(c&&u)c.outerHTML='<img class="thumb" src="'+u+'">'}}
  document.querySelectorAll("[data-id]").forEach(el=>el.onclick=e=>{if(e.target.closest(".del"))return;openPlace(el.dataset.id)});
  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{if(p.storage==="cloud"||p.storage==="pending")await deletePlaceInstant(p);else{for(let id of(p.photos||[]))if(!String(id).startsWith("data:")&&!String(id).startsWith("cloud:"))await photoDelete(id);places=places.filter(x=>x.id!==p.id);save();cloudToast("Deleted")}}catch(e){console.error(e);cloudToast("Delete queued",2400)}})
@@ -397,11 +399,11 @@ $("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.
  }else{let c=map.getCenter(),id=crypto.randomUUID?crypto.randomUUID():String(Date.now()),base={id,name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,route:draftRoute,created:new Date().toISOString()};
    if(authUser){
     let queuedPhotos=[...draftPhotos];
-    let optimistic=await queueCloudPlace(base,queuedPhotos);
+    let optimistic=await stageCloudPlace(base,queuedPhotos);
     places=places.filter(x=>x.id!==id);places.unshift(optimistic);
     $("sheet").classList.remove("open");draftPhotos=[];renderPreviews();await render();
-    cloudToast("Added · syncing…",1800);
-    syncOutbox();
+    cloudToast("Added · saving…",1400);
+    flushPending();
    }
    else{let ids=[];for(let x of draftPhotos){let pid="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(pid,x.blob);ids.push(pid)}places.unshift({...base,photos:ids,storage:"local"});save()}
    $("sheet").classList.remove("open");draftPhotos=[];renderPreviews()
@@ -419,8 +421,8 @@ $("authForm").onsubmit=async e=>{e.preventDefault();clearAuthMsg();let email=$("
 $("signOutBtn").onclick=async()=>{let {error}=await sb.auth.signOut();if(error){alert(error.message);return}updateAuthUI(null);setAuthMode("signin")};
 sb.auth.onAuthStateChange((event,session)=>{updateAuthUI(session?.user||null);if(event==="SIGNED_IN"&&session?.user){$("authPage").classList.remove("open")}});
 
-window.addEventListener("online",()=>{processDeletes().then(()=>syncOutbox())});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&authUser){processDeletes().then(()=>syncOutbox())}});
+window.addEventListener("online",()=>{processDeletes().then(()=>flushPending())});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&authUser){processDeletes().then(()=>flushPending())}});
 setAuthMode("signin");initAuth();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
 </script></body></html>
