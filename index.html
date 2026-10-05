@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V1.9.0 SUPABASE RPC SYNC ENGINE -->
+<title>Pinpoint</title><!-- V1.9.1 PHOTO UPLOAD RECOVERY -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -26,7 +26,7 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
 .placesHead{padding:calc(16px + env(safe-area-inset-top)) 16px 5px}.placesHead h1{margin:0;font-size:30px}.search{width:100%;margin-top:14px;border:0;background:#e9e9e6;border-radius:14px;padding:12px 14px;font-size:16px}
 .filters{display:flex;gap:8px;overflow:auto;padding:8px 16px;scrollbar-width:none}.filters::-webkit-scrollbar{display:none}.chip{white-space:nowrap;border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 12px}.chip.on{background:#171717;color:#fff;border-color:#171717}
 .cards{display:grid;gap:10px;padding:8px 16px}.place{display:grid;grid-template-columns:74px 1fr auto;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:18px;padding:9px}.thumb{width:74px;height:74px;border-radius:13px;background:#ecece8;object-fit:cover;display:grid;place-items:center;font-size:28px}.place h3{margin:0 0 4px;font-size:16px}.place.syncing{opacity:.72}.syncBadge{font-size:11px;color:var(--accent);font-weight:750;margin-top:4px}
-.syncTrack{height:4px;background:#e5e5e1;border-radius:999px;overflow:hidden;margin-top:6px;max-width:180px}.syncFill{height:100%;background:var(--accent);border-radius:999px;transition:width .22s ease}.stars{font-size:14px;margin-top:5px;color:#e9a51a}.empty{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;color:var(--muted);text-align:center}
+.syncTrack{height:4px;background:#e5e5e1;border-radius:999px;overflow:hidden;margin-top:6px;max-width:180px}.syncFill{height:100%;background:var(--accent);border-radius:999px;transition:width .22s ease}.syncFail{font-size:11px;color:#b42318;font-weight:750;margin-top:5px}.retrySync{border:0;background:none;padding:0;color:#b42318;font:inherit;font-weight:800;text-decoration:underline;cursor:pointer}.stars{font-size:14px;margin-top:5px;color:#e9a51a}.empty{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;color:var(--muted);text-align:center}
 .nav{position:fixed;z-index:1000;bottom:0;left:50%;transform:translateX(-50%);width:min(720px,100%);height:calc(68px + env(safe-area-inset-bottom));padding:7px 8px env(safe-area-inset-bottom);background:#fffffff2;backdrop-filter:blur(18px);border-top:1px solid #ddd;display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr}.nav button{border:0;background:none;font-size:12px;font-weight:650;color:#777}.nav button.sel{color:#111}.nav .add{width:50px;height:50px;border-radius:50%;background:#171717;color:#fff;font-size:28px;margin:auto}
 .sheet{position:fixed;z-index:2000;inset:0;background:#0005;display:none;align-items:flex-end}.sheet.open{display:flex}.panel{width:min(720px,100%);margin:auto;background:var(--bg);border-radius:26px 26px 0 0;padding:16px 18px calc(20px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto}.handle{width:42px;height:5px;border-radius:5px;background:#ccc;margin:0 auto 14px}.row{display:flex;gap:10px}.field{margin:12px 0}.field label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px;font-size:16px}.field textarea{min-height:78px;resize:vertical}.primary{width:100%;border:0;border-radius:15px;background:var(--accent);color:#fff;padding:14px;font-weight:750;font-size:16px}.secondary{border:1px solid var(--line);background:#fff;border-radius:14px;padding:10px 12px}.moreWrap{position:relative}.moreBtn{border:0;background:#fff;border-radius:50%;width:42px;height:42px;font-weight:800}.moreMenu{display:none;position:absolute;right:0;top:46px;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 25px #0002;padding:6px;width:190px;z-index:20}.moreMenu.open{display:block}.moreMenu button{width:100%;border:0;background:none;text-align:left;padding:11px;font-weight:650}.gpxPaste{position:fixed;z-index:2600;inset:0;background:#0006;display:none;align-items:flex-end}.gpxPaste.open{display:flex}.gpxPastePanel{width:min(720px,100%);margin:auto;background:var(--bg);border-radius:24px 24px 0 0;padding:18px 18px calc(20px + env(safe-area-inset-bottom))}.gpxPaste textarea{width:100%;height:220px;border:1px solid var(--line);border-radius:14px;padding:12px;font:12px ui-monospace,monospace;background:#fff}.routeInfo{display:none;background:#eef4f1;color:#176b51;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:700;margin-top:10px}.coords{font-size:12px;color:var(--muted);margin-top:5px}
 .rate{display:flex;gap:7px}.star{position:relative;border:0;background:none;padding:0;font-size:33px;line-height:1;color:#ccc}.star.full{color:#efad20}.star.half:after{content:"★";position:absolute;left:0;top:0;width:50%;overflow:hidden;color:#efad20}.ratingHelp{font-size:12px;color:var(--muted);margin-top:4px}
@@ -204,50 +204,72 @@ async function registerPhotoRPC(item,ph,path){
  let {error}=await sb.rpc("pinpoint_register_photo",{p_id:ph.photoId,p_place_id:item.id,p_storage_path:path,p_sort_order:ph.sort||0});
  if(error)throw error
 }
+function errText(e){return String(e?.message||e?.error_description||e?.details||e||"Upload failed").slice(0,120)}
+function withTimeout(p,ms,label){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error(label+" timed out")),ms))])}
+function persistPhotoIdentity(itemId,index,ph){
+ let q=readOutbox(),item=q.find(x=>x.id===itemId);if(!item)return ph;
+ let cur=item.photos[index];
+ if(typeof cur==="string")cur={localId:cur,sort:index,type:"image/jpeg"};
+ cur={...cur,...ph};item.photos[index]=cur;writeOutbox(q);return cur
+}
 async function directUploadPlace(item){
  if(!authUser||item.ownerId!==authUser.id)throw new Error("Wrong account");
  let ownerId=authUser.id;
- await savePlaceRPC(item);updateQueued(item.id,{syncProgress:20});await render();
+ updateQueued(item.id,{syncError:"",syncProgress:8});await render();
+ await withTimeout(savePlaceRPC(item),12000,"Saving place");
+ updateQueued(item.id,{syncProgress:20});await render();
+
  let staged=item.photos||[],refs=[];
- if(staged.length){
-  let completed=0;
-  refs=await Promise.all(staged.map(async(ph,i)=>{
-   if(typeof ph==="string")ph={localId:ph,photoId:crypto.randomUUID(),sort:i,type:"image/jpeg"};
-   if(!ph.photoId)ph.photoId=crypto.randomUUID();
-   let blob=await photoGet(ph.localId);if(!blob)throw new Error("A selected photo is missing from this device.");
-   let ext=mimeExt(ph.type||blob.type),path=ownerId+"/"+item.id+"/"+ph.photoId+"."+ext;
-   let meta=await sb.from("place_photos").select("storage_path").eq("id",ph.photoId).eq("owner_id",ownerId).maybeSingle();
-   if(meta.error)throw meta.error;
-   if(!meta.data){
-    let up=await sb.storage.from("place-photos").upload(path,blob,{contentType:ph.type||blob.type||"image/jpeg",upsert:true});if(up.error)throw up.error;
-    await registerPhotoRPC(item,ph,path)
-   }else path=meta.data.storage_path;
-   completed++;updateQueued(item.id,{syncProgress:20+Math.round(75*completed/staged.length)});render();
-   return "cloud:"+path
-  }))
+ for(let i=0;i<staged.length;i++){
+  let ph=staged[i];
+  if(typeof ph==="string")ph={localId:ph,sort:i,type:"image/jpeg"};
+  if(!ph.photoId)ph=persistPhotoIdentity(item.id,i,{...ph,photoId:crypto.randomUUID(),sort:i});
+  let blob=await photoGet(ph.localId);if(!blob)throw new Error("Photo "+(i+1)+" is no longer available on this device.");
+  let ext=mimeExt(ph.type||blob.type),path=ownerId+"/"+item.id+"/"+ph.photoId+"."+ext;
+
+  let meta=await withTimeout(sb.from("place_photos").select("storage_path").eq("id",ph.photoId).eq("owner_id",ownerId).maybeSingle(),10000,"Checking photo "+(i+1));
+  if(meta.error)throw meta.error;
+  if(meta.data?.storage_path){
+   path=meta.data.storage_path;
+  }else{
+   let up=await withTimeout(sb.storage.from("place-photos").upload(path,blob,{contentType:ph.type||blob.type||"image/jpeg",upsert:true}),30000,"Uploading photo "+(i+1));
+   if(up.error)throw new Error("Photo "+(i+1)+": "+errText(up.error));
+   try{
+    await withTimeout(registerPhotoRPC(item,ph,path),12000,"Registering photo "+(i+1));
+   }catch(e){
+    throw new Error("Photo "+(i+1)+" uploaded but could not be registered: "+errText(e));
+   }
+  }
+  refs.push("cloud:"+path);
+  let pct=20+Math.round(75*(i+1)/Math.max(1,staged.length));
+  updateQueued(item.id,{syncProgress:pct,syncError:""});await render();
  }
- updateQueued(item.id,{syncProgress:100});await render();
+ updateQueued(item.id,{syncProgress:100,syncError:""});await render();
  await clearOutboxPlace(item.id);
  return refs
 }
 let syncRunning=false,syncAgain=false;
-async function flushPending(){
+async function flushPending(targetId=null){
  if(syncRunning){syncAgain=true;return}
  if(!authUser)return;
  syncRunning=true;let ownerId=authUser.id;
  try{
   claimLegacyOutbox(ownerId);
-  for(let item of [...readOutbox()].filter(x=>x.ownerId===ownerId)){
+  let jobs=[...readOutbox()].filter(x=>x.ownerId===ownerId&&(!targetId||x.id===targetId));
+  for(let item of jobs){
    if(authUser?.id!==ownerId)break;
    if(isDeletedId(item.id)){await clearOutboxPlace(item.id);continue}
    try{
-    let refs=await directUploadPlace(item);
-    let p=places.find(x=>x.id===item.id);if(p){p.photos=refs;p.storage="cloud";p.syncing=false;p.syncProgress=100}
+    updateQueued(item.id,{syncError:""});let refs=await directUploadPlace(item);
+    let p=places.find(x=>x.id===item.id);if(p){p.photos=refs;p.storage="cloud";p.syncing=false;p.syncProgress=100;p.syncError=""}
     await render();cloudToast("Uploaded",1600)
-   }catch(e){console.error("Cloud upload",item.id,e);await render()}
+   }catch(e){
+    let msg=errText(e);console.error("Cloud upload",item.id,e);
+    updateQueued(item.id,{syncError:msg});await render();cloudToast("Upload needs attention",2600)
+   }
   }
   if(authUser?.id===ownerId)await loadCloudPlaces(ownerId)
- }finally{syncRunning=false;if(syncAgain){syncAgain=false;setTimeout(flushPending,150)}}
+ }finally{syncRunning=false;if(syncAgain){syncAgain=false;setTimeout(()=>flushPending(),150)}}
 }
 async function processDeletes(){
  if(!authUser)return;
@@ -294,13 +316,15 @@ async function loadCloudPlaces(ownerId=authUser?.id){
 async function uploadCloudPhotos(placeId,items){
  if(!items.length)return[];
  let ownerId=authUser?.id;if(!ownerId)throw new Error("You are not signed in.");
- return Promise.all(items.map(async(x,i)=>{
-  let photoId=crypto.randomUUID(),ext=mimeExt(x.blob.type),path=ownerId+"/"+placeId+"/"+photoId+"."+ext;
-  await retryCloud(async()=>{let {error}=await sb.storage.from("place-photos").upload(path,x.blob,{contentType:x.blob.type||"image/jpeg",upsert:false});if(error)throw error},2);
-  try{await retryCloud(async()=>{let {error}=await sb.from("place_photos").upsert({id:photoId,place_id:placeId,owner_id:ownerId,storage_path:path,sort_order:i},{onConflict:"id"});if(error)throw error},2)}
-  catch(e){sb.storage.from("place-photos").remove([path]).catch(()=>{});throw e}
-  return "cloud:"+path
- }))
+ let refs=[];
+ for(let i=0;i<items.length;i++){
+  let x=items[i],photoId=crypto.randomUUID(),ext=mimeExt(x.blob.type),path=ownerId+"/"+placeId+"/"+photoId+"."+ext;
+  let up=await withTimeout(sb.storage.from("place-photos").upload(path,x.blob,{contentType:x.blob.type||"image/jpeg",upsert:true}),30000,"Uploading photo "+(i+1));
+  if(up.error)throw up.error;
+  await withTimeout(registerPhotoRPC({id:placeId},{photoId,sort:i},path),12000,"Registering photo "+(i+1));
+  refs.push("cloud:"+path)
+ }
+ return refs
 }
 async function deleteCloudPlace(p){
  if(!authUser)throw new Error("You are not signed in.");
@@ -363,10 +387,11 @@ async function render(){
  let q=$("search").value.trim().toLowerCase(),min=+$("ratingFilter").value;
  let shown=places.filter(p=>(filter==="All"||p.category===filter||p.status===filter)&&p.rating>=min&&(!q||[p.name,p.category,p.status,p.notes].join(" ").toLowerCase().includes(q)));
  let sort=$("sort").value;if(sort==="high")shown.sort((a,b)=>b.rating-a.rating);if(sort==="low")shown.sort((a,b)=>a.rating-b.rating);if(sort==="name")shown.sort((a,b)=>a.name.localeCompare(b.name));if(sort==="new")shown.sort((a,b)=>String(b.created).localeCompare(String(a.created)));
- $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?'<div class="syncBadge">Uploading… '+Math.round(p.syncProgress||5)+'%</div><div class="syncTrack"><div class="syncFill" style="width:'+Math.round(p.syncProgress||5)+'%"></div></div>':'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
+ $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?(p.syncError?'<div class="syncFail">Upload failed · <button class="retrySync" data-retry="'+p.id+'">Retry</button><br>'+esc(p.syncError)+'</div>':'<div class="syncBadge">Uploading… '+Math.round(p.syncProgress||5)+'%</div><div class="syncTrack"><div class="syncFill" style="width:'+Math.round(p.syncProgress||5)+'%"></div></div>'):'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
  for(let p of shown){if(p.photos?.length){let u=await photoURL(p.photos[0]),c=$("cover-"+p.id);if(c&&u)c.outerHTML='<img class="thumb" src="'+u+'">'}}
  document.querySelectorAll("[data-id]").forEach(el=>el.onclick=e=>{if(e.target.closest(".del"))return;openPlace(el.dataset.id)});
- document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{if(p.storage==="cloud"||p.storage==="pending")await deletePlaceInstant(p);else{for(let id of(p.photos||[]))if(!String(id).startsWith("data:")&&!String(id).startsWith("cloud:"))await photoDelete(id);places=places.filter(x=>x.id!==p.id);save();cloudToast("Deleted")}}catch(e){console.error(e);cloudToast("Delete queued",2400)}})
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{if(p.storage==="cloud"||p.storage==="pending")await deletePlaceInstant(p);else{for(let id of(p.photos||[]))if(!String(id).startsWith("data:")&&!String(id).startsWith("cloud:"))await photoDelete(id);places=places.filter(x=>x.id!==p.id);save();cloudToast("Deleted")}}catch(e){console.error(e);cloudToast("Delete queued",2400)}}) 
+ document.querySelectorAll("[data-retry]").forEach(b=>b.onclick=e=>{e.stopPropagation();let id=b.dataset.retry;updateQueued(id,{syncError:""});render();flushPending(id)})
 }
 async function openPlace(id){let p=places.find(x=>x.id===id);if(!p)return;currentPlaceId=id;let urls=[];for(let x of(p.photos||[])){let u=await photoURL(x);if(u)urls.push(u)}currentGalleryURLs=urls;$("galleryContent").innerHTML=(urls.length?'<div class="heroGallery">'+urls.map((u,i)=>'<img src="'+u+'" data-full="'+i+'">').join("")+'</div>':'<div class="empty" style="margin:14px">No photos yet.</div>')+'<div class="detail"><h1>'+esc(p.name)+'</h1><div class="meta">'+emo(p.category)+' '+esc(p.category)+' · '+esc(p.status)+'</div>'+(p.route?'<div class="detailBlock"><b>↝ Route length</b><div style="font-size:22px;margin-top:6px">'+routeDistance(p.route)+'</div></div>':'')+'<div class="detailBlock"><div class="detailRating">'+starText(p.rating)+' <b>'+p.rating.toFixed(1)+'</b></div></div>'+(p.notes?'<div class="detailBlock"><b>Comments</b><div style="margin-top:8px;white-space:pre-wrap">'+esc(p.notes)+'</div></div>':'')+'</div>';$("galleryPage").classList.add("open");document.querySelectorAll("[data-full]").forEach(x=>x.onclick=()=>openLightbox(+x.dataset.full))}
 function openLightbox(start=0){$("lightboxTrack").innerHTML=currentGalleryURLs.map(u=>'<div class="lightboxSlide"><img src="'+u+'"></div>').join("");$("lightbox").classList.add("open");requestAnimationFrame(()=>{$("lightboxTrack").scrollLeft=start*$("lightboxTrack").clientWidth;updateLightboxCount()})}
