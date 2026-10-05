@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V1.7.7 INSTANT LOCAL-FIRST CLOUD SYNC -->
+<title>Pinpoint</title><!-- V1.7.8 RESILIENT SYNC + DELETE TOMBSTONES -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -146,7 +146,7 @@ function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage"
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
 function updateAuthUI(user){
  authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";
- if(authUser){let uid=authUser.id;places=[...localPlaces(),...outboxPlaces()];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid);syncOutbox()},0)}
+ if(authUser){let uid=authUser.id;places=[...localPlaces().filter(x=>!isDeletedId(x.id)),...outboxPlaces()];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await processDeletes();await loadCloudPlaces(uid);syncOutbox()},0)}
  else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=[...localPlaces(),...outboxPlaces()];render()}
 }
 
@@ -173,41 +173,84 @@ async function photoDelete(id){let db=await dbp;return new Promise((res,rej)=>{l
 async function photoURL(id){if(!id)return"";if(String(id).startsWith("data:"))return id;if(String(id).startsWith("cloud:")){if(!authUser)return"";let path=String(id).slice(6);let {data,error}=await sb.storage.from("place-photos").createSignedUrl(path,3600);return error?"":data.signedUrl}let b=await photoGet(id);return b?URL.createObjectURL(b):""}
 function localPlaces(){return places.filter(p=>p.storage!=="cloud"&&p.storage!=="pending")}
 const OUTBOX_KEY="pinpoint-cloud-outbox-v1";
+const DELETE_KEY="pinpoint-cloud-deletes-v1";
 function readOutbox(){try{return JSON.parse(localStorage.getItem(OUTBOX_KEY)||"[]")}catch(e){return[]}}
 function writeOutbox(v){localStorage.setItem(OUTBOX_KEY,JSON.stringify(v))}
-function outboxPlaces(){return readOutbox().map(p=>({...p,storage:"pending",syncing:true}))}
+function readDeletes(){try{return JSON.parse(localStorage.getItem(DELETE_KEY)||"[]")}catch(e){return[]}}
+function writeDeletes(v){localStorage.setItem(DELETE_KEY,JSON.stringify([...new Set(v)]))}
+function isDeletedId(id){return readDeletes().includes(id)}
+function outboxPlaces(){return readOutbox().filter(p=>!isDeletedId(p.id)).map(p=>({...p,storage:"pending",syncing:true}))}
 async function queueCloudPlace(base,items){
- let photoIds=[];
- for(let x of items){let pid="out-"+crypto.randomUUID();await photoPut(pid,x.blob);photoIds.push(pid)}
- let q=readOutbox();q=q.filter(x=>x.id!==base.id);q.unshift({...base,photos:photoIds,visibility:"private"});writeOutbox(q);
- return {...base,photos:photoIds,storage:"pending",visibility:"private",syncing:true}
+ let photos=[];
+ for(let i=0;i<items.length;i++){let localId="out-"+crypto.randomUUID(),cloudId=crypto.randomUUID();await photoPut(localId,items[i].blob);photos.push({localId,cloudId,sort:i,type:items[i].blob.type||"image/jpeg"})}
+ let q=readOutbox().filter(x=>x.id!==base.id);q.unshift({...base,photos,visibility:"private"});writeOutbox(q);
+ return {...base,photos:photos.map(x=>x.localId),storage:"pending",visibility:"private",syncing:true}
 }
-async function removeOutboxPlace(id){
+async function clearOutboxPlace(id){
  let q=readOutbox(),p=q.find(x=>x.id===id);writeOutbox(q.filter(x=>x.id!==id));
- for(let pid of(p?.photos||[]))await photoDelete(pid).catch(()=>{})
+ for(let ph of(p?.photos||[])){let localId=typeof ph==="string"?ph:ph.localId;if(localId)await photoDelete(localId).catch(()=>{})}
 }
-let syncRunning=false;
+async function normalizeOutbox(){
+ let q=readOutbox(),changed=false;
+ for(let p of q){
+  if(!Array.isArray(p.photos))p.photos=[];
+  p.photos=p.photos.map((ph,i)=>{if(typeof ph==="string"){changed=true;return{localId:ph,cloudId:crypto.randomUUID(),sort:i,type:"image/jpeg"}}return ph})
+ }
+ if(changed)writeOutbox(q)
+}
+let syncRunning=false,syncAgain=false;
+async function syncOnePhoto(ownerId,item,ph){
+ let meta=await sb.from("place_photos").select("id,storage_path").eq("id",ph.cloudId).eq("owner_id",ownerId).maybeSingle();
+ if(meta.error)throw meta.error;
+ if(meta.data)return "cloud:"+meta.data.storage_path;
+ let blob=await photoGet(ph.localId);if(!blob)throw new Error("Queued photo is missing from this device.");
+ let ext=mimeExt(ph.type||blob.type),path=ownerId+"/"+item.id+"/"+ph.cloudId+"."+ext;
+ let up=await sb.storage.from("place-photos").upload(path,blob,{contentType:ph.type||blob.type||"image/jpeg",upsert:true});if(up.error)throw up.error;
+ let row=await sb.from("place_photos").upsert({id:ph.cloudId,place_id:item.id,owner_id:ownerId,storage_path:path,sort_order:ph.sort||0},{onConflict:"id"});if(row.error)throw row.error;
+ return "cloud:"+path
+}
 async function syncOutbox(){
- if(syncRunning||!authUser)return;syncRunning=true;let ownerId=authUser.id;
+ if(syncRunning){syncAgain=true;return}
+ if(!authUser)return;
+ syncRunning=true;let ownerId=authUser.id;
  try{
+  await normalizeOutbox();
   for(let item of [...readOutbox()]){
    if(authUser?.id!==ownerId)break;
+   if(isDeletedId(item.id)){await clearOutboxPlace(item.id);continue}
    try{
-    await retryCloud(async()=>{let r=await sb.from("places").upsert({id:item.id,owner_id:ownerId,name:item.name,category:item.category,status:dbStatus(item.status),rating:item.rating,notes:item.notes,latitude:item.lat,longitude:item.lng,route:item.route,visibility:"private"},{onConflict:"id"});if(r.error)throw r.error},2);
+    let r=await sb.from("places").upsert({id:item.id,owner_id:ownerId,name:item.name,category:item.category,status:dbStatus(item.status),rating:item.rating,notes:item.notes,latitude:item.lat,longitude:item.lng,route:item.route,visibility:"private"},{onConflict:"id"});if(r.error)throw r.error;
     await verifyCloudPlace(ownerId,item.id);
-    let existing=await sb.from("place_photos").select("id").eq("owner_id",ownerId).eq("place_id",item.id);if(existing.error)throw existing.error;
-    if((existing.data||[]).length<(item.photos||[]).length){
-      let uploads=[];for(let pid of(item.photos||[])){let blob=await photoGet(pid);if(blob)uploads.push({blob,url:""})}
-      await uploadCloudPhotos(item.id,uploads)
-    }
+    for(let ph of item.photos||[])await syncOnePhoto(ownerId,item,ph);
     await verifyCloudPhotos(ownerId,item.id,(item.photos||[]).length);
-    await removeOutboxPlace(item.id);
+    await clearOutboxPlace(item.id);
     let p=places.find(x=>x.id===item.id);if(p){p.syncing=false;p.storage="cloud"}
     cloudToast("Saved to cloud")
-   }catch(e){console.error("Background sync",e);let p=places.find(x=>x.id===item.id);if(p){p.syncing=true}cloudToast("Saved on device · cloud retry pending",3200)}
+   }catch(e){console.error("Background sync",item.id,e);let p=places.find(x=>x.id===item.id);if(p)p.syncing=true}
   }
   if(authUser?.id===ownerId)await loadCloudPlaces(ownerId)
- }finally{syncRunning=false}
+ }finally{
+  syncRunning=false;
+  if(syncAgain){syncAgain=false;setTimeout(syncOutbox,100)}
+ }
+}
+async function processDeletes(){
+ if(!authUser)return;
+ let ownerId=authUser.id,ids=[...readDeletes()];
+ for(let id of ids){
+  try{
+   let q=await sb.from("places").delete().eq("id",id).eq("owner_id",ownerId);if(q.error)throw q.error;
+   let check=await sb.from("places").select("id").eq("id",id).eq("owner_id",ownerId).maybeSingle();if(check.error)throw check.error;
+   if(!check.data){writeDeletes(readDeletes().filter(x=>x!==id));await clearOutboxPlace(id)}
+  }catch(e){console.error("Pending delete",id,e)}
+ }
+}
+async function deletePlaceInstant(p){
+ let id=p.id;
+ writeDeletes([...readDeletes(),id]);
+ places=places.filter(x=>x.id!==id);await render();cloudToast("Deleted");
+ if(p.storage==="pending")await clearOutboxPlace(id);
+ if(authUser){await processDeletes();await loadCloudPlaces(authUser.id)}
 }
 function dbStatus(v){return v==="Visited"?"visited":"want"}
 function uiStatus(v){return v==="visited"?"Visited":"Want to visit"}
@@ -232,8 +275,8 @@ async function loadCloudPlaces(ownerId=authUser?.id){
  if(pe){console.error("Cloud photos",pe);photos=[]}
  let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
  let cloud=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private"}));
- let pending=outboxPlaces(),pendingIds=new Set(pending.map(x=>x.id));
- places=[...localPlaces(),...pending,...cloud.filter(x=>!pendingIds.has(x.id))];await render();
+ let pending=outboxPlaces(),pendingIds=new Set(pending.map(x=>x.id)),deletedIds=new Set(readDeletes());
+ places=[...localPlaces().filter(x=>!deletedIds.has(x.id)),...pending,...cloud.filter(x=>!pendingIds.has(x.id)&&!deletedIds.has(x.id))];await render();
 }
 async function uploadCloudPhotos(placeId,items){
  if(!items.length)return[];
@@ -307,10 +350,10 @@ async function render(){
  let q=$("search").value.trim().toLowerCase(),min=+$("ratingFilter").value;
  let shown=places.filter(p=>(filter==="All"||p.category===filter||p.status===filter)&&p.rating>=min&&(!q||[p.name,p.category,p.status,p.notes].join(" ").toLowerCase().includes(q)));
  let sort=$("sort").value;if(sort==="high")shown.sort((a,b)=>b.rating-a.rating);if(sort==="low")shown.sort((a,b)=>a.rating-b.rating);if(sort==="name")shown.sort((a,b)=>a.name.localeCompare(b.name));if(sort==="new")shown.sort((a,b)=>String(b.created).localeCompare(String(a.created)));
- $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?'<div class="syncBadge">Uploading…</div>':'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
+ $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?'<div class="syncBadge">Syncing…</div>':'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
  for(let p of shown){if(p.photos?.length){let u=await photoURL(p.photos[0]),c=$("cover-"+p.id);if(c&&u)c.outerHTML='<img class="thumb" src="'+u+'">'}}
  document.querySelectorAll("[data-id]").forEach(el=>el.onclick=e=>{if(e.target.closest(".del"))return;openPlace(el.dataset.id)});
- document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{if(p.storage==="cloud")await deleteCloudPlace(p);else if(p.storage==="pending"){places=places.filter(x=>x.id!==p.id);await render();await removeOutboxPlace(p.id);cloudToast("Deleted");if(authUser)sb.from("places").delete().eq("id",p.id).eq("owner_id",authUser.id).then(()=>{})}else{for(let id of(p.photos||[]))if(!String(id).startsWith("data:")&&!String(id).startsWith("cloud:"))await photoDelete(id);places=places.filter(x=>x.id!==p.id);save();cloudToast("Deleted")}}catch(e){console.error(e);b.disabled=false;b.textContent="×";alert("Delete could not be completed, so the place has been restored. Please try again.")}})
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{if(p.storage==="cloud"||p.storage==="pending")await deletePlaceInstant(p);else{for(let id of(p.photos||[]))if(!String(id).startsWith("data:")&&!String(id).startsWith("cloud:"))await photoDelete(id);places=places.filter(x=>x.id!==p.id);save();cloudToast("Deleted")}}catch(e){console.error(e);cloudToast("Delete queued",2400)}})
 }
 async function openPlace(id){let p=places.find(x=>x.id===id);if(!p)return;currentPlaceId=id;let urls=[];for(let x of(p.photos||[])){let u=await photoURL(x);if(u)urls.push(u)}currentGalleryURLs=urls;$("galleryContent").innerHTML=(urls.length?'<div class="heroGallery">'+urls.map((u,i)=>'<img src="'+u+'" data-full="'+i+'">').join("")+'</div>':'<div class="empty" style="margin:14px">No photos yet.</div>')+'<div class="detail"><h1>'+esc(p.name)+'</h1><div class="meta">'+emo(p.category)+' '+esc(p.category)+' · '+esc(p.status)+'</div>'+(p.route?'<div class="detailBlock"><b>↝ Route length</b><div style="font-size:22px;margin-top:6px">'+routeDistance(p.route)+'</div></div>':'')+'<div class="detailBlock"><div class="detailRating">'+starText(p.rating)+' <b>'+p.rating.toFixed(1)+'</b></div></div>'+(p.notes?'<div class="detailBlock"><b>Comments</b><div style="margin-top:8px;white-space:pre-wrap">'+esc(p.notes)+'</div></div>':'')+'</div>';$("galleryPage").classList.add("open");document.querySelectorAll("[data-full]").forEach(x=>x.onclick=()=>openLightbox(+x.dataset.full))}
 function openLightbox(start=0){$("lightboxTrack").innerHTML=currentGalleryURLs.map(u=>'<div class="lightboxSlide"><img src="'+u+'"></div>').join("");$("lightbox").classList.add("open");requestAnimationFrame(()=>{$("lightboxTrack").scrollLeft=start*$("lightboxTrack").clientWidth;updateLightboxCount()})}
@@ -366,7 +409,7 @@ $("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.
  $("form").reset();rating=5;renderRate()
 }catch(err){console.error(err);alert("Could not save this place. "+(err?.message||"Please try again."))}finally{if(btn)btn.disabled=false}};
 $("lightboxTrack").onscroll=()=>requestAnimationFrame(updateLightboxCount);$("lightboxClose").onclick=()=>$("lightbox").classList.remove("open");$("editPlace").onclick=beginEdit;$("ratingFilter").onchange=render;$("sort").onchange=render;$("galleryBack").onclick=()=>$("galleryPage").classList.remove("open");
-places=[...localPlaces(),...outboxPlaces()];$("category").innerHTML=CATS.map(c=>'<option value="'+c.name+'">'+c.emoji+" "+c.name+"</option>").join("");renderRate();render();lookup();
+places=[...localPlaces().filter(x=>!isDeletedId(x.id)),...outboxPlaces()];$("category").innerHTML=CATS.map(c=>'<option value="'+c.name+'">'+c.emoji+" "+c.name+"</option>").join("");renderRate();render();lookup();
 
 $("accountBtn").onclick=()=>{$("authPage").classList.add("open");clearAuthMsg()};
 $("authClose").onclick=()=>$("authPage").classList.remove("open");
@@ -375,6 +418,9 @@ $("signUpTab").onclick=()=>setAuthMode("signup");
 $("authForm").onsubmit=async e=>{e.preventDefault();clearAuthMsg();let email=$("authEmail").value.trim(),password=$("authPassword").value;$("authSubmit").disabled=true;$("authSubmit").textContent=authMode==="signin"?"Signing in…":"Creating…";try{if(authMode==="signup"){let first_name=$("authFirstName").value.trim(),username=$("authUsername").value.trim().toLowerCase().replace(/^@/,"");if(!first_name)throw new Error("Enter your first name.");if(!/^[a-z0-9_]{3,24}$/.test(username))throw new Error("Username must be 3–24 characters using letters, numbers or _.");let chk=await sb.from("profiles").select("id").eq("username",username).maybeSingle();if(chk.data)throw new Error("That username is already taken.");let {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:"https://olliesarge2002-rgb.github.io/pinpoint/",data:{first_name,username}}});if(error)throw error;if(data.session){updateAuthUI(data.user);authMsg("Account created and signed in.")}else authMsg("Account created. Check your email and tap the verification link, then return to Pinpoint and sign in.")}else{let {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;updateAuthUI(data.user);await loadCloudPlaces(data.user.id);authMsg("Signed in.")}}catch(err){authMsg(err?.message||"Something went wrong. Please try again.","err")}finally{$("authSubmit").disabled=false;$("authSubmit").textContent=authMode==="signin"?"Sign in":"Create account"}};
 $("signOutBtn").onclick=async()=>{let {error}=await sb.auth.signOut();if(error){alert(error.message);return}updateAuthUI(null);setAuthMode("signin")};
 sb.auth.onAuthStateChange((event,session)=>{updateAuthUI(session?.user||null);if(event==="SIGNED_IN"&&session?.user){$("authPage").classList.remove("open")}});
+
+window.addEventListener("online",()=>{processDeletes().then(()=>syncOutbox())});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&authUser){processDeletes().then(()=>syncOutbox())}});
 setAuthMode("signin");initAuth();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
 </script></body></html>
