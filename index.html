@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V1.9.1 PHOTO UPLOAD RECOVERY -->
+<title>Pinpoint</title><!-- V2.0.0 STAGE 1 RELIABLE CLOUD LIFECYCLE -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -135,7 +135,8 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const CATS=[["Beach","🏖️"],["Viewpoint","⛰️"],["Hike","🥾"],["Restaurant","🍴"],["Attraction","🏛️"],["Accommodation","🛏️"],["Other","📍"]].map(([name,emoji])=>({name,emoji}));
-let places=JSON.parse(localStorage.getItem("pinpoint-places")||"[]").map(p=>({...p,photos:p.photos||[],rating:Number(p.rating||0),storage:p.storage||"local"}));
+// Supabase is authoritative. Legacy local places remain untouched for backup/recovery only.
+let places=[];
 let filter="All",rating=5,draftPhotos=[],nearName="",nearType="",geoTimer,mapStyle="Explore",currentPlaceId=null,editingId=null,currentGalleryURLs=[],draftRoute=null;
 const $=id=>document.getElementById(id);
 const SUPABASE_URL="https://fqfyzvggzppljxqumpnp.supabase.co";
@@ -146,9 +147,9 @@ function authMsg(message,type="ok"){let el=$("authMessage");el.textContent=messa
 function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage").textContent=""}
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
 function updateAuthUI(user){
- authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";
- if(authUser){let uid=authUser.id;claimLegacyOutbox(uid);places=[...localPlaces().filter(x=>!isDeletedId(x.id)),...outboxPlaces()];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await processDeletes();await loadCloudPlaces(uid);flushPending()},0)}
- else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=localPlaces();render()}
+ authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";signedPhotoCache.clear();
+ if(authUser){let uid=authUser.id;places=[];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid);resumeJobs()},0)}
+ else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=[];render()}
 }
 
 function avatarHTML(p,big=false){let cls="avatar"+(big?" big":"");if(p?.avatar_url)return '<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="">';let x=(p?.first_name||p?.username||"P").trim().charAt(0).toUpperCase();return '<div class="'+cls+'">'+esc(x)+'</div>'}
@@ -173,119 +174,102 @@ async function photoGet(id){let db=await dbp;return new Promise((res,rej)=>{let 
 async function photoDelete(id){let db=await dbp;return new Promise((res,rej)=>{let tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 const signedPhotoCache=new Map();
 async function photoURL(id){if(!id)return"";if(String(id).startsWith("data:"))return id;if(String(id).startsWith("cloud:")){if(!authUser)return"";let path=String(id).slice(6);if(signedPhotoCache.has(path))return signedPhotoCache.get(path);let {data,error}=await sb.storage.from("place-photos").createSignedUrl(path,3600);if(error)return"";signedPhotoCache.set(path,data.signedUrl);return data.signedUrl}let b=await photoGet(id);return b?URL.createObjectURL(b):""}
-function localPlaces(){return places.filter(p=>p.storage!=="cloud"&&p.storage!=="pending")}
-const OUTBOX_KEY="pinpoint-cloud-outbox-v1";
-const DELETE_KEY="pinpoint-cloud-deletes-v1";
+function legacyLocalPlaces(){try{return JSON.parse(localStorage.getItem("pinpoint-places")||"[]")}catch(e){return[]}}
+const OUTBOX_KEY="pinpoint-stage1-jobs-v2";
 function readOutbox(){try{return JSON.parse(localStorage.getItem(OUTBOX_KEY)||"[]")}catch(e){return[]}}
 function writeOutbox(v){localStorage.setItem(OUTBOX_KEY,JSON.stringify(v))}
-function readDeletes(){try{return JSON.parse(localStorage.getItem(DELETE_KEY)||"[]")}catch(e){return[]}}
-function writeDeletes(v){localStorage.setItem(DELETE_KEY,JSON.stringify([...new Set(v)]))}
-function isDeletedId(id){return readDeletes().includes(id)}
-function pendingPhotoIds(p){return (p.photos||[]).map(x=>typeof x==="string"?x:x.localId).filter(Boolean)}
-function claimLegacyOutbox(ownerId){let q=readOutbox(),changed=false;q=q.map(p=>{if(!p.ownerId){changed=true;return{...p,ownerId}}return p});if(changed)writeOutbox(q)}
-function outboxPlaces(){if(!authUser)return[];return readOutbox().filter(p=>p.ownerId===authUser.id&&!isDeletedId(p.id)).map(p=>({...p,photos:pendingPhotoIds(p),storage:"pending",syncing:true,syncProgress:Number(p.syncProgress||5)}))}
-function updateQueued(id,patch){let q=readOutbox(),i=q.findIndex(x=>x.id===id);if(i>=0){q[i]={...q[i],...patch};writeOutbox(q)}let p=places.find(x=>x.id===id);if(p)Object.assign(p,patch)}
-async function stageCloudPlace(base,items){
+function jobsForUser(){return authUser?readOutbox().filter(x=>x.ownerId===authUser.id):[]}
+function pendingPhotoIds(p){return (p.photos||[]).map(x=>x.localId).filter(Boolean)}
+function jobPlace(p){return {...p,photos:pendingPhotoIds(p),storage:"pending",syncing:true,syncProgress:Number(p.syncProgress||5),syncPhase:p.syncPhase||"Preparing…",syncError:p.syncError||"",syncState:"uploading"}}
+function updateJob(id,patch){let q=readOutbox(),i=q.findIndex(x=>x.id===id);if(i>=0){q[i]={...q[i],...patch};writeOutbox(q)}let p=places.find(x=>x.id===id);if(p)Object.assign(p,patch)}
+async function removeJob(id){let q=readOutbox(),p=q.find(x=>x.id===id);writeOutbox(q.filter(x=>x.id!==id));for(let ph of(p?.photos||[]))if(ph.localId)await photoDelete(ph.localId).catch(()=>{})}
+async function stageJob(base,items){
  let photos=[];
- for(let i=0;i<items.length;i++){let localId="out-"+crypto.randomUUID(),photoId=crypto.randomUUID();await photoPut(localId,items[i].blob);photos.push({localId,photoId,sort:i,type:items[i].blob.type||"image/jpeg"})}
- let item={...base,photos,visibility:"private",ownerId:authUser.id,syncProgress:5};
- let q=readOutbox().filter(x=>x.id!==base.id);q.unshift(item);writeOutbox(q);
- return {...base,photos:photos.map(x=>x.localId),storage:"pending",visibility:"private",syncing:true,syncProgress:5}
+ for(let i=0;i<items.length;i++){let localId="job-"+crypto.randomUUID();await photoPut(localId,items[i].blob);photos.push({localId,photoId:crypto.randomUUID(),sort:i,type:items[i].blob.type||"image/jpeg",state:"queued",storagePath:null})}
+ let job={...base,ownerId:authUser.id,photos,expectedPhotoCount:photos.length,syncProgress:5,syncPhase:"Preparing…",syncError:""};
+ writeOutbox([job,...readOutbox().filter(x=>x.id!==job.id)]);return jobPlace(job)
 }
-async function clearOutboxPlace(id){
- let q=readOutbox(),p=q.find(x=>x.id===id);writeOutbox(q.filter(x=>x.id!==id));
- for(let localId of pendingPhotoIds(p||{}))await photoDelete(localId).catch(()=>{})
-}
-async function savePlaceRPC(item){
- let {data,error}=await sb.rpc("pinpoint_save_place",{p_id:item.id,p_name:item.name,p_category:item.category,p_status:dbStatus(item.status),p_rating:Number(item.rating||0),p_notes:item.notes||"",p_latitude:item.lat,p_longitude:item.lng,p_route:item.route||null,p_visibility:"private"});
- if(error)throw error;if(data!==item.id)throw new Error("Supabase did not confirm the place save.")
-}
-async function registerPhotoRPC(item,ph,path){
- let {error}=await sb.rpc("pinpoint_register_photo",{p_id:ph.photoId,p_place_id:item.id,p_storage_path:path,p_sort_order:ph.sort||0});
- if(error)throw error
-}
-function errText(e){return String(e?.message||e?.error_description||e?.details||e||"Upload failed").slice(0,120)}
+function errText(e){return String(e?.message||e?.error_description||e?.details||e||"Operation failed").slice(0,180)}
 function withTimeout(p,ms,label){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error(label+" timed out")),ms))])}
-function persistPhotoIdentity(itemId,index,ph){
- let q=readOutbox(),item=q.find(x=>x.id===itemId);if(!item)return ph;
- let cur=item.photos[index];
- if(typeof cur==="string")cur={localId:cur,sort:index,type:"image/jpeg"};
- cur={...cur,...ph};item.photos[index]=cur;writeOutbox(q);return cur
+async function beginPlace(job){
+ let {data,error}=await sb.rpc("pinpoint_begin_place_v2",{p_id:job.id,p_name:job.name,p_category:job.category,p_status:dbStatus(job.status),p_rating:Number(job.rating||0),p_notes:job.notes||"",p_latitude:job.lat,p_longitude:job.lng,p_route:job.route||null,p_visibility:"private",p_expected_photo_count:job.expectedPhotoCount||0});
+ if(error)throw error;if(data!==job.id)throw new Error("Supabase did not confirm place creation.")
 }
-async function directUploadPlace(item){
- if(!authUser||item.ownerId!==authUser.id)throw new Error("Wrong account");
- let ownerId=authUser.id;
- updateQueued(item.id,{syncError:"",syncProgress:8});await render();
- await withTimeout(savePlaceRPC(item),12000,"Saving place");
- updateQueued(item.id,{syncProgress:20});await render();
-
- let staged=item.photos||[],refs=[];
- for(let i=0;i<staged.length;i++){
-  let ph=staged[i];
-  if(typeof ph==="string")ph={localId:ph,sort:i,type:"image/jpeg"};
-  if(!ph.photoId)ph=persistPhotoIdentity(item.id,i,{...ph,photoId:crypto.randomUUID(),sort:i});
-  let blob=await photoGet(ph.localId);if(!blob)throw new Error("Photo "+(i+1)+" is no longer available on this device.");
-  let ext=mimeExt(ph.type||blob.type),path=ownerId+"/"+item.id+"/"+ph.photoId+"."+ext;
-
-  let meta=await withTimeout(sb.from("place_photos").select("storage_path").eq("id",ph.photoId).eq("owner_id",ownerId).maybeSingle(),10000,"Checking photo "+(i+1));
-  if(meta.error)throw meta.error;
-  if(meta.data?.storage_path){
-   path=meta.data.storage_path;
-  }else{
-   let up=await withTimeout(sb.storage.from("place-photos").upload(path,blob,{contentType:ph.type||blob.type||"image/jpeg",upsert:true}),30000,"Uploading photo "+(i+1));
-   if(up.error)throw new Error("Photo "+(i+1)+": "+errText(up.error));
-   try{
-    await withTimeout(registerPhotoRPC(item,ph,path),12000,"Registering photo "+(i+1));
-   }catch(e){
-    throw new Error("Photo "+(i+1)+" uploaded but could not be registered: "+errText(e));
-   }
-  }
-  refs.push("cloud:"+path);
-  let pct=20+Math.round(75*(i+1)/Math.max(1,staged.length));
-  updateQueued(item.id,{syncProgress:pct,syncError:""});await render();
- }
- updateQueued(item.id,{syncProgress:100,syncError:""});await render();
- await clearOutboxPlace(item.id);
- return refs
+async function registerPhoto(placeId,ph,path){
+ let {error}=await sb.rpc("pinpoint_register_photo_v2",{p_id:ph.photoId,p_place_id:placeId,p_storage_path:path,p_sort_order:ph.sort});if(error)throw error
 }
-let syncRunning=false,syncAgain=false;
-async function flushPending(targetId=null){
- if(syncRunning){syncAgain=true;return}
- if(!authUser)return;
- syncRunning=true;let ownerId=authUser.id;
+async function finalizePlace(job){
+ let {data,error}=await sb.rpc("pinpoint_finalize_place_v2",{p_id:job.id});if(error)throw error;if(data!==job.id)throw new Error("Supabase did not confirm final save.")
+}
+async function uploadOne(job,ph,index){
+ let blob=await photoGet(ph.localId);if(!blob)throw new Error("Photo "+(index+1)+" is no longer available on this device.");
+ let path=ph.storagePath||authUser.id+"/"+job.id+"/"+ph.photoId+"."+mimeExt(ph.type||blob.type);
+ let meta=await withTimeout(sb.from("place_photos").select("storage_path").eq("id",ph.photoId).eq("owner_id",authUser.id).maybeSingle(),10000,"Checking photo "+(index+1));
+ if(meta.error)throw meta.error;
+ if(meta.data?.storage_path)return meta.data.storage_path;
+ let up=await withTimeout(sb.storage.from("place-photos").upload(path,blob,{contentType:ph.type||blob.type||"image/jpeg",upsert:true}),30000,"Uploading photo "+(index+1));
+ if(up.error)throw new Error("Photo "+(index+1)+": "+errText(up.error));
+ await withTimeout(registerPhoto(job.id,ph,path),12000,"Registering photo "+(index+1));return path
+}
+let syncRunning=false;
+async function syncJob(id){
+ if(syncRunning)return;
+ let job=readOutbox().find(x=>x.id===id);if(!job||!authUser||job.ownerId!==authUser.id)return;
+ syncRunning=true;
  try{
-  claimLegacyOutbox(ownerId);
-  let jobs=[...readOutbox()].filter(x=>x.ownerId===ownerId&&(!targetId||x.id===targetId));
-  for(let item of jobs){
-   if(authUser?.id!==ownerId)break;
-   if(isDeletedId(item.id)){await clearOutboxPlace(item.id);continue}
-   try{
-    updateQueued(item.id,{syncError:""});let refs=await directUploadPlace(item);
-    let p=places.find(x=>x.id===item.id);if(p){p.photos=refs;p.storage="cloud";p.syncing=false;p.syncProgress=100;p.syncError=""}
-    await render();cloudToast("Uploaded",1600)
-   }catch(e){
-    let msg=errText(e);console.error("Cloud upload",item.id,e);
-    updateQueued(item.id,{syncError:msg});await render();cloudToast("Upload needs attention",2600)
+  updateJob(id,{syncError:"",syncPhase:"Saving place…",syncProgress:10});await render();
+  await withTimeout(beginPlace(job),12000,"Saving place");
+  updateJob(id,{syncPhase:job.photos.length?"Uploading photos…":"Finalising…",syncProgress:20});await render();
+  let next=0,done=0,failed=[];
+  async function worker(){
+   while(next<job.photos.length){
+    let i=next++,ph=job.photos[i];
+    try{
+     let path=await uploadOne(job,ph,i);ph.storagePath=path;ph.state="done";ph.error="";done++;
+     let q=readOutbox(),j=q.find(x=>x.id===id);if(j){j.photos=job.photos;writeOutbox(q)}
+     updateJob(id,{syncProgress:20+Math.round(70*done/Math.max(1,job.photos.length)),syncPhase:"Uploaded "+done+" of "+job.photos.length+" photos"});await render()
+    }catch(e){ph.state="failed";ph.error=errText(e);failed.push("Photo "+(i+1)+": "+errText(e))}
    }
   }
-  if(authUser?.id===ownerId)await loadCloudPlaces(ownerId)
- }finally{syncRunning=false;if(syncAgain){syncAgain=false;setTimeout(()=>flushPending(),150)}}
+  await Promise.all(Array.from({length:Math.min(2,Math.max(1,job.photos.length))},worker));
+  let q=readOutbox(),j=q.find(x=>x.id===id);if(j){j.photos=job.photos;writeOutbox(q)}
+  if(failed.length)throw new Error(failed.join(" · "));
+  updateJob(id,{syncPhase:"Finalising…",syncProgress:95});await render();
+  await withTimeout(finalizePlace(job),12000,"Finalising place");
+  await removeJob(id);await loadCloudPlaces(authUser.id);cloudToast("Saved",1600)
+ }catch(e){console.error("Pinpoint save failed",id,e);updateJob(id,{syncError:errText(e),syncPhase:"Upload failed"});await render()}
+ finally{syncRunning=false}
 }
-async function processDeletes(){
- if(!authUser)return;
- for(let id of [...readDeletes()]){
-  try{
-   let {data,error}=await sb.rpc("pinpoint_delete_place",{p_id:id});if(error)throw error;
-   writeDeletes(readDeletes().filter(x=>x!==id));await clearOutboxPlace(id);
-   if(Array.isArray(data)&&data.length)sb.storage.from("place-photos").remove(data).catch(()=>{})
-  }catch(e){console.error("Delete retry",id,e)}
+async function resumeJobs(){if(!authUser||syncRunning)return;let j=jobsForUser().find(x=>!x.syncError);if(j)await syncJob(j.id)}
+async function deletePlaceV2(p){
+ if(!authUser)throw new Error("Sign in required.");
+ places=places.filter(x=>x.id!==p.id);await render();cloudToast("Deleting…",10000);
+ try{
+  let {data,error}=await withTimeout(sb.rpc("pinpoint_delete_place_v2",{p_id:p.id}),12000,"Deleting place");if(error)throw error;
+  await removeJob(p.id);
+  let paths=Array.isArray(data)?data:[];
+  if(paths.length){let rm=await withTimeout(sb.storage.from("place-photos").remove(paths),20000,"Removing photos");if(rm.error)console.warn("Photo cleanup failed after DB delete",rm.error)}
+  await loadCloudPlaces(authUser.id);
+  if(places.some(x=>x.id===p.id))throw new Error("Supabase still contains this place.");
+  cloudToast("Deleted",1600)
+ }catch(e){console.error("Pinpoint delete failed",e);await loadCloudPlaces(authUser.id);cloudToast("Delete failed · "+errText(e),4000);throw e}
+}
+async function uploadAdditionalPhotos(place,items){
+ if(!items.length)return[];
+ let existing=place.photos?.length||0;if(existing+items.length>5)throw new Error("A place can have a maximum of 5 photos.");
+ let refs=[],next=0,errors=[];
+ async function worker(){
+  while(next<items.length){
+   let i=next++,x=items[i],ph={photoId:crypto.randomUUID(),sort:existing+i},path=authUser.id+"/"+place.id+"/"+ph.photoId+".jpg";
+   try{
+    let up=await withTimeout(sb.storage.from("place-photos").upload(path,x.blob,{contentType:"image/jpeg",upsert:true}),30000,"Uploading photo "+(i+1));if(up.error)throw up.error;
+    await withTimeout(registerPhoto(place.id,ph,path),12000,"Registering photo "+(i+1));refs.push({sort:ph.sort,ref:"cloud:"+path})
+   }catch(e){errors.push("Photo "+(i+1)+": "+errText(e))}
+  }
  }
-}
-async function deletePlaceInstant(p){
- writeDeletes([...readDeletes(),p.id]);
- places=places.filter(x=>x.id!==p.id);await render();cloudToast("Deleted");
- await clearOutboxPlace(p.id);
- if(authUser)processDeletes()
+ await Promise.all(Array.from({length:Math.min(2,items.length)},worker));
+ if(errors.length)throw new Error(errors.join(" · "));
+ return refs.sort((a,b)=>a.sort-b.sort).map(x=>x.ref)
 }
 function dbStatus(v){return v==="Visited"?"visited":"want"}
 function uiStatus(v){return v==="visited"?"Visited":"Want to visit"}
@@ -300,57 +284,27 @@ function mimeExt(type=""){type=String(type).toLowerCase();if(type.includes("png"
 
 let cloudLoadSeq=0;
 async function loadCloudPlaces(ownerId=authUser?.id){
- let seq=++cloudLoadSeq;
- if(!ownerId||authUser?.id!==ownerId)return;
- let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at").eq("owner_id",ownerId).order("created_at",{ascending:false});
- if(error){console.error("Cloud places",error);alert("Pinpoint could not load your cloud places. Please check your connection and try again.");return}
+ let seq=++cloudLoadSeq;if(!ownerId||authUser?.id!==ownerId)return;
+ let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at,sync_state,expected_photo_count").eq("owner_id",ownerId).order("created_at",{ascending:false});
+ if(error){console.error("Cloud places",error);cloudToast("Could not load places · "+errText(error),4000);return}
  if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return;
  let {data:photos,error:pe}=await sb.from("place_photos").select("place_id,storage_path,sort_order").eq("owner_id",ownerId).order("sort_order",{ascending:true});
- if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return;
  if(pe){console.error("Cloud photos",pe);photos=[]}
+ if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return;
  let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
- let cloud=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private"}));
- let pending=outboxPlaces(),pendingIds=new Set(pending.map(x=>x.id)),deletedIds=new Set(readDeletes());
- places=[...localPlaces().filter(x=>!deletedIds.has(x.id)),...pending,...cloud.filter(x=>!pendingIds.has(x.id)&&!deletedIds.has(x.id))];await render();
+ let server=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private",syncState:r.sync_state||"ready",expectedPhotoCount:r.expected_photo_count||0}));
+ let jobs=jobsForUser(),jm=new Map(jobs.map(j=>[j.id,j]));
+ places=server.filter(p=>p.syncState==="ready"||jm.has(p.id)).map(p=>jm.has(p.id)?{...p,...jobPlace(jm.get(p.id))}:p);
+ for(let j of jobs)if(!places.some(p=>p.id===j.id))places.unshift(jobPlace(j));
+ await render()
 }
-async function uploadCloudPhotos(placeId,items){
- if(!items.length)return[];
- let ownerId=authUser?.id;if(!ownerId)throw new Error("You are not signed in.");
- let refs=[];
- for(let i=0;i<items.length;i++){
-  let x=items[i],photoId=crypto.randomUUID(),ext=mimeExt(x.blob.type),path=ownerId+"/"+placeId+"/"+photoId+"."+ext;
-  let up=await withTimeout(sb.storage.from("place-photos").upload(path,x.blob,{contentType:x.blob.type||"image/jpeg",upsert:true}),30000,"Uploading photo "+(i+1));
-  if(up.error)throw up.error;
-  await withTimeout(registerPhotoRPC({id:placeId},{photoId,sort:i},path),12000,"Registering photo "+(i+1));
-  refs.push("cloud:"+path)
- }
- return refs
-}
-async function deleteCloudPlace(p){
- if(!authUser)throw new Error("You are not signed in.");
- let ownerId=authUser.id,paths=(p.photos||[]).filter(x=>String(x).startsWith("cloud:")).map(x=>String(x).slice(6));
- let oldIndex=places.findIndex(x=>x.id===p.id);
- places=places.filter(x=>x.id!==p.id);await render();cloudToast("Deleted");
- try{
-  await retryCloud(async()=>{let q=await sb.from("places").delete().eq("id",p.id).eq("owner_id",ownerId);if(q.error)throw q.error},2);
-  // Verify absence only after UI has already updated.
-  let q=await sb.from("places").select("id").eq("id",p.id).eq("owner_id",ownerId).maybeSingle();
-  if(q.error)throw q.error;if(q.data)throw new Error("Delete was not confirmed.");
-  if(paths.length)sb.storage.from("place-photos").remove(paths).catch(e=>console.warn("Photo cleanup",e));
- }catch(e){
-  console.error("Delete",e);
-  places.splice(Math.max(0,oldIndex),0,p);await render();
-  throw e
- }
-}
-
 function blobToDataURL(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){let a=s.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"application/octet-stream",b=atob(a[1]),n=b.length,u=new Uint8Array(n);while(n--)u[n]=b.charCodeAt(n);return new Blob([u],{type:m})}
 async function backupLocalData(){
   let btn=$("backupBtn"),status=$("backupStatus");btn.disabled=true;status.textContent="Preparing backup…";
   try{
     let photos={};
-    let backupPlaces=localPlaces();let ids=[...new Set(backupPlaces.flatMap(p=>p.photos||[]).filter(id=>!String(id).startsWith("data:")&&!String(id).startsWith("cloud:")))];
+    let backupPlaces=legacyLocalPlaces();let ids=[...new Set(backupPlaces.flatMap(p=>p.photos||[]).filter(id=>!String(id).startsWith("data:")&&!String(id).startsWith("cloud:")))];
     for(let i=0;i<ids.length;i++){let b=await photoGet(ids[i]);if(b)photos[ids[i]]=await blobToDataURL(b);status.textContent="Backing up photos "+(i+1)+" of "+ids.length+"…"}
     let payload={format:"pinpoint-backup",version:1,createdAt:new Date().toISOString(),places:backupPlaces.map(({storage,...p})=>p),photos};
     let blob=new Blob([JSON.stringify(payload)],{type:"application/json"});
@@ -369,8 +323,7 @@ async function restoreLocalData(file){
     if(!confirm("Restore "+payload.places.length+" places and "+count+" photos? This will replace the local Pinpoints currently on this device.")){status.textContent="Restore cancelled.";return}
     let i=0;
     for(let [id,data] of Object.entries(payload.photos)){await photoPut(id,dataURLToBlob(data));i++;status.textContent="Restoring photos "+i+" of "+count+"…"}
-    places=payload.places.map(p=>({...p,photos:p.photos||[],rating:Number(p.rating||0)}));
-    localStorage.setItem("pinpoint-places",JSON.stringify(places));render();draw();status.textContent="Restore complete: "+places.length+" places · "+count+" photos.";
+    localStorage.setItem("pinpoint-places",JSON.stringify(payload.places));render();draw();status.textContent="Restore complete: "+places.length+" places · "+count+" photos.";
     alert("Pinpoint backup restored.");
   }catch(e){console.error(e);alert("That file is not a valid Pinpoint backup.");status.textContent="Restore failed."}
 }
@@ -379,7 +332,7 @@ function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function emo(c){return(CATS.find(x=>x.name===c)||CATS.at(-1)).emoji}
 function starText(v){let s="";for(let i=1;i<=5;i++)s+=i<=Math.floor(v)?"★":v>=i-.5?"½":"☆";return s}
 function page(w){$("mapPage").classList.toggle("active",w==="map");$("placesPage").classList.toggle("active",w==="places");$("friendsPage").classList.toggle("active",w==="friends");$("profilePage").classList.toggle("active",w==="profile");$("mapBtn").classList.toggle("sel",w==="map");$("placesBtn").classList.toggle("sel",w==="places");$("friendsBtn").classList.toggle("sel",w==="friends");$("profileBtn").classList.toggle("sel",w==="profile");if(w==="map")setTimeout(()=>map.invalidateSize(),30);if(w==="friends"&&authUser)loadConnections();if(w==="profile"&&authUser)loadMyProfile()}
-function save(){localStorage.setItem("pinpoint-places",JSON.stringify(localPlaces().map(({storage,...p})=>p)));render()}
+function save(){render()}
 function renderFilters(){$("filters").innerHTML=["All",...CATS.map(c=>c.name),"Visited","Want to visit"].map(x=>'<button class="chip '+(filter===x?"on":"")+'" data-f="'+x+'">'+(CATS.some(c=>c.name===x)?emo(x)+" ":"")+x+"</button>").join("");document.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;render()})}
 async function render(){
  renderFilters();markers.clearLayers();routes.clearLayers();$("count").textContent=places.length+" "+(places.length===1?"place":"places");$("placeCount").textContent=places.length+" saved "+(places.length===1?"place":"places");
@@ -387,11 +340,11 @@ async function render(){
  let q=$("search").value.trim().toLowerCase(),min=+$("ratingFilter").value;
  let shown=places.filter(p=>(filter==="All"||p.category===filter||p.status===filter)&&p.rating>=min&&(!q||[p.name,p.category,p.status,p.notes].join(" ").toLowerCase().includes(q)));
  let sort=$("sort").value;if(sort==="high")shown.sort((a,b)=>b.rating-a.rating);if(sort==="low")shown.sort((a,b)=>a.rating-b.rating);if(sort==="name")shown.sort((a,b)=>a.name.localeCompare(b.name));if(sort==="new")shown.sort((a,b)=>String(b.created).localeCompare(String(a.created)));
- $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?(p.syncError?'<div class="syncFail">Upload failed · <button class="retrySync" data-retry="'+p.id+'">Retry</button><br>'+esc(p.syncError)+'</div>':'<div class="syncBadge">Uploading… '+Math.round(p.syncProgress||5)+'%</div><div class="syncTrack"><div class="syncFill" style="width:'+Math.round(p.syncProgress||5)+'%"></div></div>'):'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
+ $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?(p.syncError?'<div class="syncFail">Upload failed · <button class="retrySync" data-retry="'+p.id+'">Retry</button><br>'+esc(p.syncError)+'</div>':'<div class="syncBadge">'+esc(p.syncPhase||"Saving…")+' · '+Math.round(p.syncProgress||5)+'%</div><div class="syncTrack"><div class="syncFill" style="width:'+Math.round(p.syncProgress||5)+'%"></div></div>'):'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
  for(let p of shown){if(p.photos?.length){let u=await photoURL(p.photos[0]),c=$("cover-"+p.id);if(c&&u)c.outerHTML='<img class="thumb" src="'+u+'">'}}
  document.querySelectorAll("[data-id]").forEach(el=>el.onclick=e=>{if(e.target.closest(".del"))return;openPlace(el.dataset.id)});
- document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{if(p.storage==="cloud"||p.storage==="pending")await deletePlaceInstant(p);else{for(let id of(p.photos||[]))if(!String(id).startsWith("data:")&&!String(id).startsWith("cloud:"))await photoDelete(id);places=places.filter(x=>x.id!==p.id);save();cloudToast("Deleted")}}catch(e){console.error(e);cloudToast("Delete queued",2400)}}) 
- document.querySelectorAll("[data-retry]").forEach(b=>b.onclick=e=>{e.stopPropagation();let id=b.dataset.retry;updateQueued(id,{syncError:""});render();flushPending(id)})
+ document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{await deletePlaceV2(p)}catch(e){b.disabled=false;b.textContent="×"}})
+ document.querySelectorAll("[data-retry]").forEach(b=>b.onclick=e=>{e.stopPropagation();let id=b.dataset.retry;updateJob(id,{syncError:"",syncPhase:"Retrying…"});render();syncJob(id)})
 }
 async function openPlace(id){let p=places.find(x=>x.id===id);if(!p)return;currentPlaceId=id;let urls=[];for(let x of(p.photos||[])){let u=await photoURL(x);if(u)urls.push(u)}currentGalleryURLs=urls;$("galleryContent").innerHTML=(urls.length?'<div class="heroGallery">'+urls.map((u,i)=>'<img src="'+u+'" data-full="'+i+'">').join("")+'</div>':'<div class="empty" style="margin:14px">No photos yet.</div>')+'<div class="detail"><h1>'+esc(p.name)+'</h1><div class="meta">'+emo(p.category)+' '+esc(p.category)+' · '+esc(p.status)+'</div>'+(p.route?'<div class="detailBlock"><b>↝ Route length</b><div style="font-size:22px;margin-top:6px">'+routeDistance(p.route)+'</div></div>':'')+'<div class="detailBlock"><div class="detailRating">'+starText(p.rating)+' <b>'+p.rating.toFixed(1)+'</b></div></div>'+(p.notes?'<div class="detailBlock"><b>Comments</b><div style="margin-top:8px;white-space:pre-wrap">'+esc(p.notes)+'</div></div>':'')+'</div>';$("galleryPage").classList.add("open");document.querySelectorAll("[data-full]").forEach(x=>x.onclick=()=>openLightbox(+x.dataset.full))}
 function openLightbox(start=0){$("lightboxTrack").innerHTML=currentGalleryURLs.map(u=>'<div class="lightboxSlide"><img src="'+u+'"></div>').join("");$("lightbox").classList.add("open");requestAnimationFrame(()=>{$("lightboxTrack").scrollLeft=start*$("lightboxTrack").clientWidth;updateLightboxCount()})}
@@ -401,14 +354,21 @@ function renderRate(){$("ratingText").textContent=rating.toFixed(1);$("rate").in
 function infer(d){let t=((d.type||"")+" "+(d.category||"")+" "+(d.addresstype||"")).toLowerCase();if(t.includes("beach"))return"Beach";if(/restaurant|cafe|food/.test(t))return"Restaurant";if(/hotel|hostel|accommodation/.test(t))return"Accommodation";if(t.includes("viewpoint"))return"Viewpoint";if(/tourism|attraction|museum|historic/.test(t))return"Attraction";return"Other"}
 async function lookup(){let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("nearby").innerHTML="<b>Finding this place…</b><small>"+c.lat.toFixed(4)+", "+c.lng.toFixed(4)+"</small>";try{let r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat="+c.lat+"&lon="+c.lng+"&addressdetails=1",{headers:{"Accept-Language":"en"}}),d=await r.json();nearName=d.name||d.address?.beach||d.address?.attraction||d.address?.restaurant||d.address?.amenity||d.address?.village||d.address?.town||d.address?.city||(d.display_name||"").split(",")[0]||"Unnamed place";nearType=infer(d);$("nearby").innerHTML="<b>"+esc(nearName)+"</b><small>"+esc(nearType)+" · "+esc((d.display_name||"").split(",").slice(1,3).join(","))+"</small>"}catch(e){nearName="";$("nearby").innerHTML="<b>Selected location</b><small>"+c.lat.toFixed(4)+", "+c.lng.toFixed(4)+"</small>"}}
 map.on("moveend",()=>{clearTimeout(geoTimer);geoTimer=setTimeout(lookup,700)});
-function renderPreviews(){$("previews").innerHTML=draftPhotos.map((p,i)=>'<div class="preview"><img src="'+p.url+'"><button type="button" data-rm="'+i+'">×</button></div>').join("");document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{draftPhotos.splice(+b.dataset.rm,1);renderPreviews()})}
+function renderPreviews(){$("previews").innerHTML=draftPhotos.map((p,i)=>'<div class="preview"><img src="'+p.url+'"><button type="button" data-rm="'+i+'">×</button></div>').join("")+'<div class="tinyStatus" style="flex:0 0 100%;margin-top:4px">'+draftPhotos.length+' / 5 photos</div>';document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{URL.revokeObjectURL(draftPhotos[+b.dataset.rm]?.url||"");draftPhotos.splice(+b.dataset.rm,1);renderPreviews()})}
 async function compress(file){
- if(file.size<=4*1024*1024)return file;
  let src=URL.createObjectURL(file),img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=src});URL.revokeObjectURL(src);
- let max=2200,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
- let quality=.84,blob=await new Promise(r=>c.toBlob(r,"image/jpeg",quality));while(blob.size>4*1024*1024&&quality>.45){quality-=.08;blob=await new Promise(r=>c.toBlob(r,"image/jpeg",quality))}return blob
+ let max=2048,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+ let quality=.84,blob=await new Promise(r=>c.toBlob(r,"image/jpeg",quality));if(!blob)throw new Error("Image conversion failed");
+ while(blob.size>1.6*1024*1024&&quality>.58){quality-=.07;blob=await new Promise(r=>c.toBlob(r,"image/jpeg",quality))}
+ return blob
 }
-$("photos").onchange=async e=>{let fs=[...e.target.files];for(let f of fs){try{let blob=await compress(f);draftPhotos.push({blob,url:URL.createObjectURL(blob)})}catch(err){alert("One photo could not be processed.")}}renderPreviews();e.target.value=""};
+$("photos").onchange=async e=>{
+ let fs=[...e.target.files],existing=editingId?(places.find(x=>x.id===editingId)?.photos?.length||0):0,remaining=5-existing-draftPhotos.length;
+ if(remaining<=0){alert("A place can have a maximum of 5 photos.");e.target.value="";return}
+ if(fs.length>remaining){alert("You can add a maximum of 5 photos. Only the first "+remaining+" will be added.");fs=fs.slice(0,remaining)}
+ for(let f of fs){try{let blob=await compress(f);draftPhotos.push({blob,url:URL.createObjectURL(blob)})}catch(err){alert("One photo could not be processed: "+errText(err))}}
+ renderPreviews();e.target.value=""
+};
 
 function routeDistance(route){if(!route||typeof route.distanceKm!=="number")return"";let km=route.distanceKm,miles=km*0.621371;return km.toFixed(km<10?1:0)+" km · "+miles.toFixed(miles<10?1:0)+" mi"}
 function haversine(a,b){let R=6371,rad=Math.PI/180,dlat=(b.lat-a.lat)*rad,dlon=(b.lng-a.lng)*rad,x=Math.sin(dlat/2)**2+Math.cos(a.lat*rad)*Math.cos(b.lat*rad)*Math.sin(dlon/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
@@ -419,7 +379,7 @@ $("gpxPasteClose").onclick=()=>$("gpxPaste").classList.remove("open");
 $("gpxTryFile").onclick=()=>$("gpxFile").click();
 $("gpxPasteImport").onclick=()=>{try{let txt=$("gpxText").value.trim();if(!txt)throw new Error("empty");draftRoute=readGPX(txt);$("name").value=draftRoute.name;$("category").value="Hike";$("routeInfo").style.display="inline-block";$("routeInfo").textContent="↝ "+draftRoute.distanceKm.toFixed(1)+" km"+(draftRoute.elevationGain?" · "+Math.round(draftRoute.elevationGain)+" m ascent":"");$("gpxPaste").classList.remove("open");$("gpxText").value="";map.fitBounds(L.latLngBounds(draftRoute.points.map(q=>[q.lat,q.lng])),{padding:[30,30]})}catch(err){alert("That text does not appear to be a valid GPX route.")}};
 $("gpxFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let txt=await f.text();if(!/\.gpx$/i.test(f.name)&&!/<gpx[\s>]/i.test(txt))throw new Error("Not GPX");draftRoute=readGPX(txt);$("name").value=draftRoute.name;$("category").value="Hike";$("routeInfo").style.display="inline-block";$("routeInfo").textContent="↝ "+draftRoute.distanceKm.toFixed(1)+" km"+(draftRoute.elevationGain?" · "+Math.round(draftRoute.elevationGain)+" m ascent":"");map.fitBounds(L.latLngBounds(draftRoute.points.map(q=>[q.lat,q.lng])),{padding:[30,30]})}catch(err){draftRoute=null;alert("That GPX file could not be read.")}e.target.value=""};
-$("addBtn").onclick=()=>{editingId=null;draftRoute=null;$("routeInfo").style.display="none";draftPhotos=[];renderPreviews();rating=5;renderRate();$("notes").value="";let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("name").value=nearName||"";if(nearType&&CATS.some(x=>x.name===nearType))$("category").value=nearType;$("sheet").classList.add("open")};
+$("addBtn").onclick=()=>{if(!authUser){$("authPage").classList.add("open");setAuthMode("signin");authMsg("Sign in to add a Pinpoint.","err");return}editingId=null;draftRoute=null;$("routeInfo").style.display="none";draftPhotos=[];renderPreviews();rating=5;renderRate();$("notes").value="";let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("name").value=nearName||"";if(nearType&&CATS.some(x=>x.name===nearType))$("category").value=nearType;$("sheet").classList.add("open")};
 $("closeBtn").onclick=()=>$("sheet").classList.remove("open");$("mapBtn").onclick=()=>page("map");$("friendsBtn").onclick=()=>page("friends");$("placesBtn").onclick=()=>page("places");$("profileBtn").onclick=()=>page("profile");$("search").oninput=render;
 $("friendsSignIn").onclick=$("profileSignIn").onclick=()=>{$("authPage").classList.add("open");setAuthMode("signin")};
 $("peopleSearch").oninput=()=>{clearTimeout(window._peopleTimer);window._peopleTimer=setTimeout(searchPeople,250)};
@@ -427,27 +387,25 @@ $("followingTab").onclick=()=>{connectionMode="following";$("followingTab").clas
 $("followersTab").onclick=()=>{connectionMode="followers";$("followersTab").classList.add("on");$("followingTab").classList.remove("on");loadConnections()};
 $("avatarBtn").onclick=()=>$("avatarFile").click();$("avatarFile").onchange=e=>uploadAvatar(e.target.files?.[0]);$("editProfileBtn").onclick=editMyProfile;$("backupBtn").onclick=backupLocalData;$("restoreBtn").onclick=()=>$("restoreFile").click();$("restoreFile").onchange=e=>{restoreLocalData(e.target.files?.[0]);e.target.value=""};$("profileSignOut").onclick=async()=>{await sb.auth.signOut();updateAuthUI(null);page("map")};
 $("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);satellite.addTo(map);mapStyle="Satellite"}else{map.removeLayer(satellite);explore.addTo(map);mapStyle="Explore"}$("styleBtn").textContent="◫ "+mapStyle};
-$("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.disabled=true;try{
- if(editingId){let p=places.find(x=>x.id===editingId);if(!p)return;let vals={name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),route:draftRoute||p.route||null};
-   if(p.storage==="cloud"){cloudToast("Saving changes…",10000);await savePlaceRPC({...p,...vals,ownerId:authUser.id});let refs=[];try{refs=await uploadCloudPhotos(p.id,draftPhotos)}catch(err){await loadCloudPlaces(authUser.id);throw new Error("Changes saved, but a photo failed to upload. Please add that photo again.")}Object.assign(p,vals);p.photos=[...(p.photos||[]),...refs];await loadCloudPlaces(authUser.id);cloudToast("Changes saved")}
-   else{let ids=[];for(let x of draftPhotos){let id="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(id,x.blob);ids.push(id)}Object.assign(p,vals);p.photos=[...(p.photos||[]),...ids];save()}
-   $("sheet").classList.remove("open");let id=editingId;editingId=null;draftPhotos=[];renderPreviews();await openPlace(id)
- }else{let c=map.getCenter(),id=crypto.randomUUID?crypto.randomUUID():String(Date.now()),base={id,name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,route:draftRoute,created:new Date().toISOString()};
-   if(authUser){
-    let queuedPhotos=[...draftPhotos];
-    let optimistic=await stageCloudPlace(base,queuedPhotos);
-    places=places.filter(x=>x.id!==id);places.unshift(optimistic);
-    $("sheet").classList.remove("open");draftPhotos=[];renderPreviews();await render();
-    cloudToast("Added · saving…",1400);
-    flushPending();
-   }
-   else{let ids=[];for(let x of draftPhotos){let pid="ph-"+Date.now()+"-"+crypto.getRandomValues(new Uint32Array(1))[0];await photoPut(pid,x.blob);ids.push(pid)}places.unshift({...base,photos:ids,storage:"local"});save()}
-   $("sheet").classList.remove("open");draftPhotos=[];renderPreviews()
+$("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter;if(btn)btn.disabled=true;try{
+ if(!authUser)throw new Error("Sign in before saving a place.");
+ if(editingId){
+  let p=places.find(x=>x.id===editingId);if(!p)return;if(p.syncing)throw new Error("Wait for this place to finish saving before editing it.");
+  if((p.photos?.length||0)+draftPhotos.length>5)throw new Error("A place can have a maximum of 5 photos.");
+  let vals={name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),route:draftRoute||p.route||null};
+  let {error}=await sb.from("places").update({name:vals.name,category:vals.category,status:dbStatus(vals.status),rating:vals.rating,notes:vals.notes,route:vals.route,updated_at:new Date().toISOString()}).eq("id",p.id).eq("owner_id",authUser.id).eq("sync_state","ready");if(error)throw error;
+  let refs=await uploadAdditionalPhotos(p,draftPhotos);Object.assign(p,vals);p.photos=[...(p.photos||[]),...refs];
+  $("sheet").classList.remove("open");editingId=null;draftPhotos=[];renderPreviews();await loadCloudPlaces(authUser.id);cloudToast("Changes saved")
+ }else{
+  if(draftPhotos.length>5)throw new Error("A place can have a maximum of 5 photos.");
+  let c=map.getCenter(),id=crypto.randomUUID(),base={id,name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,route:draftRoute,created:new Date().toISOString()};
+  let optimistic=await stageJob(base,[...draftPhotos]);places.unshift(optimistic);
+  $("sheet").classList.remove("open");draftPhotos=[];renderPreviews();await render();cloudToast("Saving…",1400);syncJob(id)
  }
  $("form").reset();rating=5;renderRate()
-}catch(err){console.error(err);alert("Could not save this place. "+(err?.message||"Please try again."))}finally{if(btn)btn.disabled=false}};
+}catch(err){console.error(err);alert("Could not save this place. "+errText(err))}finally{if(btn)btn.disabled=false}};
 $("lightboxTrack").onscroll=()=>requestAnimationFrame(updateLightboxCount);$("lightboxClose").onclick=()=>$("lightbox").classList.remove("open");$("editPlace").onclick=beginEdit;$("ratingFilter").onchange=render;$("sort").onchange=render;$("galleryBack").onclick=()=>$("galleryPage").classList.remove("open");
-places=localPlaces().filter(x=>!isDeletedId(x.id));$("category").innerHTML=CATS.map(c=>'<option value="'+c.name+'">'+c.emoji+" "+c.name+"</option>").join("");renderRate();render();lookup();
+places=[];$("category").innerHTML=CATS.map(c=>'<option value="'+c.name+'">'+c.emoji+" "+c.name+"</option>").join("");renderRate();render();lookup();
 
 $("accountBtn").onclick=()=>{$("authPage").classList.add("open");clearAuthMsg()};
 $("authClose").onclick=()=>$("authPage").classList.remove("open");
@@ -457,8 +415,8 @@ $("authForm").onsubmit=async e=>{e.preventDefault();clearAuthMsg();let email=$("
 $("signOutBtn").onclick=async()=>{let {error}=await sb.auth.signOut();if(error){alert(error.message);return}updateAuthUI(null);setAuthMode("signin")};
 sb.auth.onAuthStateChange((event,session)=>{updateAuthUI(session?.user||null);if(event==="SIGNED_IN"&&session?.user){$("authPage").classList.remove("open")}});
 
-window.addEventListener("online",()=>{processDeletes().then(()=>flushPending())});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&authUser){processDeletes().then(()=>flushPending())}});
+window.addEventListener("online",()=>{if(authUser)loadCloudPlaces(authUser.id).then(resumeJobs)});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&authUser)loadCloudPlaces(authUser.id).then(resumeJobs)});
 setAuthMode("signin");initAuth();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
 </script></body></html>
