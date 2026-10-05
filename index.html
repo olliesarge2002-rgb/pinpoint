@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V1.7.5 INSTANT OPTIMISTIC CLOUD -->
+<title>Pinpoint</title><!-- V1.7.6 VERIFIED CLOUD PERSISTENCE -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -144,7 +144,11 @@ let authMode="signin",authUser=null,myProfile=null,connectionMode="following";
 function authMsg(message,type="ok"){let el=$("authMessage");el.textContent=message;el.className="authMessage show "+type}
 function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage").textContent=""}
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
-function updateAuthUI(user){authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";if(authUser){setTimeout(()=>{if(authUser?.id===user.id){loadMyProfile();loadCloudPlaces(user.id)}},0)}else{myProfile=null;$("connections").innerHTML="";places=places.filter(p=>p.storage!=="cloud");render()}}
+function updateAuthUI(user){
+ authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";
+ if(authUser){let uid=authUser.id;places=localPlaces();render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid)},0)}
+ else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=localPlaces();render()}
+}
 
 function avatarHTML(p,big=false){let cls="avatar"+(big?" big":"");if(p?.avatar_url)return '<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="">';let x=(p?.first_name||p?.username||"P").trim().charAt(0).toUpperCase();return '<div class="'+cls+'">'+esc(x)+'</div>'}
 async function loadMyProfile(){if(!authUser)return;let {data,error}=await sb.from("profiles").select("id,username,first_name,avatar_url").eq("id",authUser.id).maybeSingle();if(error){console.error(error);return}myProfile=data;if(!data){$("myAvatar").outerHTML='<div class="avatar big" id="myAvatar">P</div>';$("myFirstName").textContent="Complete your profile";$("myUsername").textContent="Add a name and @username";$("myEmail").textContent=authUser.email||"";$("editProfileBtn").textContent="Set up profile";return}$("editProfileBtn").textContent="Edit profile";$("myAvatar").outerHTML=avatarHTML(data,true).replace('class="avatar big"','class="avatar big" id="myAvatar"');$("myFirstName").textContent=data.first_name||"—";$("myUsername").textContent="@"+data.username;$("myEmail").textContent=authUser.email||"";loadConnections()}
@@ -174,15 +178,20 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 let toastTimer;
 function cloudToast(msg,ms=1800){let el=$("cloudToast");if(!el)return;el.textContent=msg;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),ms)}
 async function retryCloud(fn,tries=3){let last;for(let i=0;i<tries;i++){try{return await fn()}catch(e){last=e;if(i<tries-1)await sleep(450*(i+1))}}throw last}
+async function verifyCloudPlace(ownerId,placeId){for(let i=0;i<5;i++){let {data,error}=await sb.from("places").select("id").eq("id",placeId).eq("owner_id",ownerId).maybeSingle();if(error)throw error;if(data?.id===placeId)return true;await sleep(250*(i+1))}throw new Error("Place was not confirmed in cloud storage.")}
+async function verifyCloudPhotos(ownerId,placeId,expected){if(!expected)return true;for(let i=0;i<5;i++){let {data,error}=await sb.from("place_photos").select("id").eq("owner_id",ownerId).eq("place_id",placeId);if(error)throw error;if((data||[]).length>=expected)return true;await sleep(250*(i+1))}throw new Error("Photos were not confirmed in cloud storage.")}
+
 function mimeExt(type=""){type=String(type).toLowerCase();if(type.includes("png"))return"png";if(type.includes("webp"))return"webp";if(type.includes("heic"))return"heic";if(type.includes("heif"))return"heif";return"jpg"}
 
+let cloudLoadSeq=0;
 async function loadCloudPlaces(ownerId=authUser?.id){
+ let seq=++cloudLoadSeq;
  if(!ownerId||authUser?.id!==ownerId)return;
  let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at").eq("owner_id",ownerId).order("created_at",{ascending:false});
  if(error){console.error("Cloud places",error);alert("Pinpoint could not load your cloud places. Please check your connection and try again.");return}
- if(authUser?.id!==ownerId)return;
+ if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return;
  let {data:photos,error:pe}=await sb.from("place_photos").select("place_id,storage_path,sort_order").eq("owner_id",ownerId).order("sort_order",{ascending:true});
- if(authUser?.id!==ownerId)return;
+ if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return;
  if(pe){console.error("Cloud photos",pe);photos=[]}
  let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
  let cloud=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private"}));
@@ -311,8 +320,12 @@ $("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter; if(btn)btn.
     places.unshift(optimistic);$("sheet").classList.remove("open");draftPhotos=[];renderPreviews();await render();cloudToast("Added · uploading…",2200);
     try{
       await retryCloud(async()=>{let r=await sb.from("places").upsert({id,owner_id:ownerId,name:base.name,category:base.category,status:dbStatus(base.status),rating:base.rating,notes:base.notes,latitude:base.lat,longitude:base.lng,route:base.route,visibility:"private"},{onConflict:"id"});if(r.error)throw r.error},2);
+      await verifyCloudPlace(ownerId,id);
       let refs=await uploadCloudPhotos(id,queuedPhotos);
+      await verifyCloudPhotos(ownerId,id,queuedPhotos.length);
       let p=places.find(x=>x.id===id);if(p){p.photos=refs;p.syncing=false;await render()}
+      await loadCloudPlaces(ownerId);
+      if(!places.some(x=>x.id===id&&x.storage==="cloud"))throw new Error("Saved place did not return from cloud.");
       cloudToast("Saved to cloud");
     }catch(err){
       console.error("Cloud create",err);
@@ -333,7 +346,7 @@ $("accountBtn").onclick=()=>{$("authPage").classList.add("open");clearAuthMsg()}
 $("authClose").onclick=()=>$("authPage").classList.remove("open");
 $("signInTab").onclick=()=>setAuthMode("signin");
 $("signUpTab").onclick=()=>setAuthMode("signup");
-$("authForm").onsubmit=async e=>{e.preventDefault();clearAuthMsg();let email=$("authEmail").value.trim(),password=$("authPassword").value;$("authSubmit").disabled=true;$("authSubmit").textContent=authMode==="signin"?"Signing in…":"Creating…";try{if(authMode==="signup"){let first_name=$("authFirstName").value.trim(),username=$("authUsername").value.trim().toLowerCase().replace(/^@/,"");if(!first_name)throw new Error("Enter your first name.");if(!/^[a-z0-9_]{3,24}$/.test(username))throw new Error("Username must be 3–24 characters using letters, numbers or _.");let chk=await sb.from("profiles").select("id").eq("username",username).maybeSingle();if(chk.data)throw new Error("That username is already taken.");let {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:"https://olliesarge2002-rgb.github.io/pinpoint/",data:{first_name,username}}});if(error)throw error;if(data.session){updateAuthUI(data.user);authMsg("Account created and signed in.")}else authMsg("Account created. Check your email and tap the verification link, then return to Pinpoint and sign in.")}else{let {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;updateAuthUI(data.user);authMsg("Signed in.")}}catch(err){authMsg(err?.message||"Something went wrong. Please try again.","err")}finally{$("authSubmit").disabled=false;$("authSubmit").textContent=authMode==="signin"?"Sign in":"Create account"}};
+$("authForm").onsubmit=async e=>{e.preventDefault();clearAuthMsg();let email=$("authEmail").value.trim(),password=$("authPassword").value;$("authSubmit").disabled=true;$("authSubmit").textContent=authMode==="signin"?"Signing in…":"Creating…";try{if(authMode==="signup"){let first_name=$("authFirstName").value.trim(),username=$("authUsername").value.trim().toLowerCase().replace(/^@/,"");if(!first_name)throw new Error("Enter your first name.");if(!/^[a-z0-9_]{3,24}$/.test(username))throw new Error("Username must be 3–24 characters using letters, numbers or _.");let chk=await sb.from("profiles").select("id").eq("username",username).maybeSingle();if(chk.data)throw new Error("That username is already taken.");let {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:"https://olliesarge2002-rgb.github.io/pinpoint/",data:{first_name,username}}});if(error)throw error;if(data.session){updateAuthUI(data.user);authMsg("Account created and signed in.")}else authMsg("Account created. Check your email and tap the verification link, then return to Pinpoint and sign in.")}else{let {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;updateAuthUI(data.user);await loadCloudPlaces(data.user.id);authMsg("Signed in.")}}catch(err){authMsg(err?.message||"Something went wrong. Please try again.","err")}finally{$("authSubmit").disabled=false;$("authSubmit").textContent=authMode==="signin"?"Sign in":"Create account"}};
 $("signOutBtn").onclick=async()=>{let {error}=await sb.auth.signOut();if(error){alert(error.message);return}updateAuthUI(null);setAuthMode("signin")};
 sb.auth.onAuthStateChange((event,session)=>{updateAuthUI(session?.user||null);if(event==="SIGNED_IN"&&session?.user){$("authPage").classList.remove("open")}});
 setAuthMode("signin");initAuth();
