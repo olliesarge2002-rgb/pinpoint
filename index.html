@@ -12,6 +12,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <title>Pinpoint</title><!-- V2.1 SUPABASE AUTHORITATIVE STATE -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
@@ -46,15 +47,44 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
 .brandPoint{font-family:"Segoe Print","Bradley Hand","Comic Sans MS",cursive;font-weight:500;font-style:italic;letter-spacing:-1.5px;margin-left:-1px}
 .brandPlane{width:29px;height:17px;margin-left:-3px;align-self:center;overflow:visible}
 .navIcon{width:23px;height:23px;display:block;margin:0 auto 2px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.exactBrand{display:flex;align-items:center}.exactBrand img{display:block;width:174px;height:auto;object-fit:contain;object-position:left center}</style>
+.exactBrand{display:flex;align-items:center}.exactBrand img{display:block;width:174px;height:auto;object-fit:contain;object-position:left center}
+/* V2.2 */
+.mapSearch{position:relative;z-index:1100;margin:0 12px 10px;flex:0 0 auto}
+.mapSearch input{width:100%;border:0;background:#fff;border-radius:14px;padding:12px 42px 12px 40px;font-size:16px;box-shadow:0 1px 8px #0001;-webkit-appearance:none;appearance:none;outline:none}
+.mapSearch .searchIcon{position:absolute;left:13px;top:22px;transform:translateY(-50%);width:18px;height:18px;stroke:#8a8a86;fill:none;stroke-width:2;stroke-linecap:round;pointer-events:none}
+.mapSearch .searchClear{position:absolute;right:7px;top:22px;transform:translateY(-50%);width:30px;height:30px;border:0;border-radius:50%;background:#ececea;color:#555;font-size:17px;line-height:1;display:none}
+.mapSearch.hasText .searchClear{display:block}
+.mapSuggest{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 30px #0002;max-height:min(340px,50vh);overflow-y:auto}
+.mapSuggest.open{display:block}
+.suggest{display:flex;gap:10px;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line);background:#fff;text-align:left;padding:11px 13px;color:var(--ink)}
+.suggest:last-child{border-bottom:0}.suggest:active{background:#f3f3f1}.suggest>span:last-child{min-width:0}
+.suggest b{display:block;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.suggest small{display:block;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+.suggestIcon{flex:0 0 26px;font-size:18px;text-align:center}.suggestEmpty{padding:13px;color:var(--muted);font-size:14px}
+#count{display:flex;flex-direction:column;align-items:center;line-height:1.2;font-size:12px;padding:6px 12px;white-space:nowrap}
+.viewHead{display:none;margin-bottom:12px}.viewHead.show{display:block}.viewBack{margin-bottom:10px;font-weight:700}
+.viewCard{display:grid;grid-template-columns:48px 1fr auto;gap:11px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:18px;padding:10px 12px}
+.person[data-view]{cursor:pointer}
+.linkBtn{border:0;background:none;padding:0;color:var(--accent);font:inherit;font-weight:750;text-decoration:underline;cursor:pointer}
+.myStats{font-size:14px;font-weight:750;margin-top:8px}
+.ratingRow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.routeOutline{width:132px;height:80px;flex:0 0 auto;background:#fff6f1;border-radius:12px;display:block}
+.routeOutline.small{width:84px;height:52px}
+.routeMini{width:46px;height:26px;vertical-align:middle;margin-left:8px}
+.routeAttach{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px}
+.routeAttach .muted{font-size:12px;margin-top:2px}.routeAttach b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.routeAdd{width:100%;font-weight:700;text-align:left}
+.optional{font-weight:500;color:var(--muted);font-size:12px;margin-left:4px}
+</style>
 </head><body>
 <div class="app">
 <section id="mapPage" class="page active">
-<header class="top"><div><div class="brand exactBrand"><img src="pinpoint-wordmark.png" alt="Pinpoint"></div><div class="muted">Move the map beneath the crosshair</div></div><div style="display:flex;gap:8px;align-items:center"><button class="authBtn" id="accountBtn">Sign in</button><button class="pill" id="count">0 places</button></div></header>
+<header class="top"><div><div class="brand exactBrand"><img src="pinpoint-wordmark.png" alt="Pinpoint"></div><div class="muted" id="mapSub">Move the map beneath the crosshair</div></div><div style="display:flex;gap:8px;align-items:center"><button class="authBtn" id="accountBtn">Sign in</button><button class="pill" id="count">0 places</button></div></header>
+<div class="mapSearch" id="mapSearchWrap"><svg class="searchIcon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="mapSearch" type="search" placeholder="Search for a place" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="Search map"><button type="button" class="searchClear" id="mapSearchClear" aria-label="Clear search">×</button><div class="mapSuggest" id="mapSuggest"></div></div>
 <div class="mapwrap"><div id="map"></div><div class="crosshair"><i></i></div><div class="maptools"><button id="styleBtn">◫ Explore</button></div><div class="nearby" id="nearby"><b>Finding this place…</b><small>Move the map to choose a location</small></div></div>
 </section>
 <section id="placesPage" class="page">
-<div class="placesHead"><h1>Places</h1><div class="muted" id="placeCount">0 saved places</div><input class="search" id="search" placeholder="Search your places"></div>
+<div class="placesHead"><div id="viewHead" class="viewHead"></div><h1 id="placesTitle">Places</h1><div class="muted" id="placeCount">0 saved places</div><input class="search" id="search" placeholder="Search your places"></div>
 <div class="filters" id="filters"></div><div class="sortrow"><select id="ratingFilter"><option value="0">Any rating</option><option value="4">4★ and above</option><option value="3">3★ and above</option><option value="2">2★ and above</option><option value="1">1★ and above</option></select><select id="sort"><option value="new">Newest</option><option value="high">Rating: high to low</option><option value="low">Rating: low to high</option><option value="name">Name A–Z</option></select></div><div class="cards" id="places"></div>
 </section>
 
@@ -75,7 +105,7 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
     <div class="socialCard profileHero">
       <div id="myAvatar" class="avatar big">P</div>
       <h2 id="myFirstName">—</h2><div id="myUsername" class="muted">@—</div>
-      <div id="myEmail" class="tinyStatus"></div>
+      <div id="myStats" class="myStats"></div><div id="myEmail" class="tinyStatus"></div>
       <div class="row profileAction"><button class="secondary" id="avatarBtn" style="flex:1">Profile picture</button><button class="secondary" id="editProfileBtn" style="flex:1">Edit profile</button></div>
       <input id="avatarFile" type="file" accept="image/*" hidden>
     </div>
@@ -127,16 +157,19 @@ button,input,select,textarea{font:inherit}.app{max-width:720px;margin:auto;min-h
 <div class="field"><label>Place name</label><input id="name" required maxlength="100" placeholder="Finding nearby name…"><div class="coords" id="coords"></div></div>
 <div class="row"><div class="field" style="flex:1"><label>Type</label><select id="category"></select></div><div class="field" style="flex:1"><label>Status</label><select id="status"><option>Visited</option><option>Want to visit</option></select></div></div>
 <div class="field"><label>Rating <span id="ratingText">5.0</span></label><div class="rate" id="rate"></div><div class="ratingHelp">Tap a star once for whole, then tap that star again for half.</div></div>
+<div class="field"><label>Route<span class="optional">optional</span></label><div id="routeField"></div></div>
 <div class="field"><label>Photos</label><input id="photos" type="file" accept="image/*" multiple><div class="ratingHelp">Choose multiple photos. Large images are automatically compressed.</div><div id="previews" class="previews"></div></div>
 <div class="field"><label>Notes</label><textarea id="notes" maxlength="1000" placeholder="What made this place worth remembering?"></textarea></div>
 <button class="primary" type="submit">Save place</button></form></div></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const CATS=[["Beach","🏖️"],["Viewpoint","⛰️"],["Hike","🥾"],["Restaurant","🍴"],["Attraction","🏛️"],["Accommodation","🛏️"],["Other","📍"]].map(([name,emoji])=>({name,emoji}));
 // Supabase is authoritative. Legacy local places remain untouched for backup/recovery only.
-let places=[];
+let places=[],viewing=null,viewSeq=0,fitPending=false,nearCountry=null;
 let filter="All",rating=5,draftPhotos=[],nearName="",nearType="",geoTimer,mapStyle="Explore",currentPlaceId=null,editingId=null,currentGalleryURLs=[],draftRoute=null;
 const $=id=>document.getElementById(id);
 const SUPABASE_URL="https://fqfyzvggzppljxqumpnp.supabase.co";
@@ -148,24 +181,39 @@ function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage"
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
 function updateAuthUI(user){
  let prevId=authUser?.id||null;authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";signedPhotoCache.clear();
- if(authUser){let uid=authUser.id;if(uid!==prevId){places=[];render()}setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid);resumeJobs()},0)}
- else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=[];render()}
+ if(authUser){let uid=authUser.id;if(uid!==prevId){viewing=null;updateViewUI();places=[];render()}setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid);resumeJobs()},0)}
+ else{cloudLoadSeq++;viewing=null;updateViewUI();myProfile=null;$("connections").innerHTML="";places=[];render()}
 }
 
 function avatarHTML(p,big=false){let cls="avatar"+(big?" big":"");if(p?.avatar_url)return '<img class="'+cls+'" src="'+esc(p.avatar_url)+'" alt="">';let x=(p?.first_name||p?.username||"P").trim().charAt(0).toUpperCase();return '<div class="'+cls+'">'+esc(x)+'</div>'}
 async function loadMyProfile(){if(!authUser)return;let {data,error}=await sb.from("profiles").select("id,username,first_name,avatar_url").eq("id",authUser.id).maybeSingle();if(error){console.error(error);return}myProfile=data;if(!data){$("myAvatar").outerHTML='<div class="avatar big" id="myAvatar">P</div>';$("myFirstName").textContent="Complete your profile";$("myUsername").textContent="Add a name and @username";$("myEmail").textContent=authUser.email||"";$("editProfileBtn").textContent="Set up profile";return}$("editProfileBtn").textContent="Edit profile";$("myAvatar").outerHTML=avatarHTML(data,true).replace('class="avatar big"','class="avatar big" id="myAvatar"');$("myFirstName").textContent=data.first_name||"—";$("myUsername").textContent="@"+data.username;$("myEmail").textContent=authUser.email||"";loadConnections()}
-function personHTML(p,followingIds=new Set()){let mine=p.id===authUser?.id;return '<div class="person">'+avatarHTML(p)+'<div><div class="personName">'+esc(p.first_name||p.username)+'</div><div class="personUser">@'+esc(p.username)+'</div></div>'+(mine?'':('<button class="followBtn '+(followingIds.has(p.id)?"following":"")+'" data-follow="'+p.id+'">'+(followingIds.has(p.id)?"Following":"Follow")+'</button>'))+'</div>'}
+function personHTML(p,followingIds=new Set()){let mine=p.id===authUser?.id;return '<div class="person"'+(mine?'':' data-view="'+p.id+'"')+'>'+avatarHTML(p)+'<div><div class="personName">'+esc(p.first_name||p.username)+'</div><div class="personUser">@'+esc(p.username)+'</div></div>'+(mine?'':('<button class="followBtn '+(followingIds.has(p.id)?"following":"")+'" data-follow="'+p.id+'">'+(followingIds.has(p.id)?"Following":"Follow")+'</button>'))+'</div>'}
 async function myFollowingIds(){if(!authUser)return new Set();let {data}=await sb.from("follows").select("following_id").eq("follower_id",authUser.id);return new Set((data||[]).map(x=>x.following_id))}
 async function searchPeople(){if(!authUser)return;let q=$("peopleSearch").value.trim().replace(/^@/,"");if(q.length<2){$("peopleResults").style.display="none";return}let safe=q.replace(/[%_,]/g,"");let {data,error}=await sb.from("profiles").select("id,username,first_name,avatar_url").or("username.ilike.%"+safe+"%,first_name.ilike.%"+safe+"%").limit(20);if(error)return;let ids=await myFollowingIds();$("peopleResults").style.display="block";$("peopleResults").innerHTML=(data||[]).length?(data||[]).map(p=>personHTML(p,ids)).join(""):'<div class="muted">No people found.</div>';bindFollowButtons()}
-async function toggleFollow(id){if(!authUser)return;let ids=await myFollowingIds();if(ids.has(id))await sb.from("follows").delete().eq("follower_id",authUser.id).eq("following_id",id);else await sb.from("follows").insert({follower_id:authUser.id,following_id:id});await searchPeople();await loadConnections()}
-function bindFollowButtons(){document.querySelectorAll("[data-follow]").forEach(b=>b.onclick=()=>toggleFollow(b.dataset.follow))}
+async function toggleFollow(id){if(!authUser)return;let ids=await myFollowingIds();if(ids.has(id))await sb.from("follows").delete().eq("follower_id",authUser.id).eq("following_id",id);else await sb.from("follows").insert({follower_id:authUser.id,following_id:id});await searchPeople();await loadConnections();if(viewing?.id===id)await viewUser(id,true)}
+function bindFollowButtons(){document.querySelectorAll("[data-follow]").forEach(b=>b.onclick=e=>{e.stopPropagation();b.disabled=true;toggleFollow(b.dataset.follow)});document.querySelectorAll("[data-view]").forEach(el=>el.onclick=e=>{if(e.target.closest("[data-follow]"))return;viewUser(el.dataset.view)})}
 async function loadConnections(){if(!authUser)return;$("connections").innerHTML='<div class="muted">Loading…</div>';let rel,ids=[];if(connectionMode==="following"){let {data}=await sb.from("follows").select("following_id").eq("follower_id",authUser.id);ids=(data||[]).map(x=>x.following_id)}else{let {data}=await sb.from("follows").select("follower_id").eq("following_id",authUser.id);ids=(data||[]).map(x=>x.follower_id)}if(!ids.length){$("connections").innerHTML='<div class="muted">No '+connectionMode+' yet.</div>';return}let {data}=await sb.from("profiles").select("id,username,first_name,avatar_url").in("id",ids);let following=await myFollowingIds();$("connections").innerHTML=(data||[]).map(p=>personHTML(p,following)).join("");bindFollowButtons()}
 async function uploadAvatar(file){if(!authUser||!file)return;if(!myProfile){alert("Set up your profile first, then add a profile picture.");return;}let ext=(file.name.split(".").pop()||"jpg").toLowerCase();let path=authUser.id+"/avatar."+ext;let {error}=await sb.storage.from("avatars").upload(path,file,{upsert:true,contentType:file.type||"image/jpeg"});if(error){alert(error.message);return}let {data}=sb.storage.from("avatars").getPublicUrl(path);let url=data.publicUrl+"?v="+Date.now();let r=await sb.from("profiles").update({avatar_url:url}).eq("id",authUser.id);if(r.error){alert(r.error.message);return}await loadMyProfile()}
 async function editMyProfile(){if(!authUser)return;let first=prompt("First name",myProfile?.first_name||"");if(first===null)return;first=first.trim();if(!first){alert("Enter your first name.");return}let username=prompt("Username",myProfile?.username||"");if(username===null)return;username=username.trim().toLowerCase().replace(/^@/,"");if(!/^[a-z0-9_]{3,24}$/.test(username)){alert("Username must be 3–24 characters using letters, numbers or _.");return}let payload={id:authUser.id,first_name:first,username};let {error}=myProfile?await sb.from("profiles").update({first_name:first,username}).eq("id",authUser.id):await sb.from("profiles").insert(payload);if(error){alert(error.code==="23505"?"That username is already taken.":error.message);return}await loadMyProfile()}
 async function initAuth(){try{let {data}=await sb.auth.getSession();updateAuthUI(data.session?.user||null)}catch(e){updateAuthUI(null)}}
 
-const map=L.map("map",{zoomControl:false,worldCopyJump:true}).setView([25,10],2);L.control.zoom({position:"topleft"}).addTo(map);
-const explore=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const map=L.map("map",{zoomControl:false,worldCopyJump:true,maxZoom:19}).setView([25,10],2);L.control.zoom({position:"topleft"}).addTo(map);
+const OFM_ATTR='<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+const EN_LABEL=["coalesce",["get","name:en"],["get","name_en"],["get","name:latin"],["get","name"]];
+function osmRaster(){return L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"})}
+function canUseGL(){try{if(!window.maplibregl||!L.maplibreGL)return false;let c=document.createElement("canvas");return !!(c.getContext("webgl2")||c.getContext("webgl"))}catch(e){return false}}
+function englishLabels(gl){try{for(let l of gl.getStyle()?.layers||[]){let tf=l.layout&&l.layout["text-field"];if(tf&&JSON.stringify(tf).includes("name"))gl.setLayoutProperty(l.id,"text-field",EN_LABEL)}}catch(e){console.warn("English labels",e)}}
+let explore=null,exploreGL=canUseGL();
+function useRasterExplore(){exploreGL=false;let on=explore&&map.hasLayer(explore);if(on)map.removeLayer(explore);explore=osmRaster();if(on||mapStyle==="Explore")explore.addTo(map)}
+function addExplore(){
+ try{
+  if(!explore)explore=exploreGL?L.maplibreGL({style:"https://tiles.openfreemap.org/styles/liberty",attribution:OFM_ATTR}):osmRaster();
+  explore.addTo(map);
+  let gl=exploreGL&&explore.getMaplibreMap?explore.getMaplibreMap():null;
+  if(gl){let done=false,apply=()=>{try{if(!done&&gl.isStyleLoaded()){done=true;clearTimeout(t);englishLabels(gl)}}catch(e){}};let t=setTimeout(()=>{try{if(map.hasLayer(explore)&&explore.getMaplibreMap()===gl&&!gl.isStyleLoaded()){console.warn("Pinpoint: vector map unavailable, using standard tiles");useRasterExplore()}}catch(e){}},12000);gl.on("styledata",apply);gl.on("load",apply);apply()}
+ }catch(e){console.warn("Pinpoint: vector map failed, using standard tiles",e);if(explore&&map.hasLayer(explore))map.removeLayer(explore);exploreGL=false;explore=osmRaster().addTo(map)}
+}
+addExplore();
 const satellite=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Tiles © Esri"});
 const markers=L.layerGroup().addTo(map);const routes=L.layerGroup().addTo(map);
 const DBNAME="pinpoint-media",STORE="photos";let dbp=new Promise((resolve,reject)=>{let q=indexedDB.open(DBNAME,1);q.onupgradeneeded=()=>q.result.createObjectStore(STORE);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
@@ -240,7 +288,8 @@ async function syncJob(id){
   updateJob(id,{syncPhase:"Confirming cloud save…",syncProgress:98});await render();
   await withTimeout(verifyCloudPlace(authUser.id,id),22000,"Confirming ready place");
   await withTimeout(verifyCloudPhotos(authUser.id,id,job.photos.length),12000,"Confirming saved photos");
-  let lp=places.find(x=>x.id===id);if(lp)Object.assign(lp,{syncing:false,syncState:"ready",storage:"cloud",syncError:"",photos:job.photos.map(ph=>"cloud:"+ph.storagePath)});
+  if(HAS_COUNTRY){let ctry=job.countryCode?{name:job.country,code:job.countryCode}:await detectCountry(job.lat,job.lng).catch(()=>null);if(ctry){job.country=ctry.name;job.countryCode=ctry.code;let r=await withTimeout(sb.from("places").update({country:ctry.name,country_code:ctry.code}).eq("id",id).eq("owner_id",authUser.id),8000,"Saving country").catch(e=>({error:e}));if(r?.error)console.warn("Country save failed",r.error)}}
+  let lp=places.find(x=>x.id===id);if(lp)Object.assign(lp,{syncing:false,syncState:"ready",storage:"cloud",syncError:"",country:job.country||"",countryCode:job.countryCode||"",photos:job.photos.map(ph=>"cloud:"+ph.storagePath)});
   let cleanup=removeJob(id);
   await loadCloudPlaces(authUser.id);
   await cleanup.catch(()=>{});
@@ -311,22 +360,148 @@ async function verifyCloudPhotos(ownerId,placeId,expected){if(!expected)return t
 
 function mimeExt(type=""){type=String(type).toLowerCase();if(type.includes("png"))return"png";if(type.includes("webp"))return"webp";if(type.includes("heic"))return"heic";if(type.includes("heif"))return"heif";return"jpg"}
 
+
+// ===== V2.2: countries, other profiles, route outlines, map search =====
+let HAS_COUNTRY=true;
+const PLACE_COLS="id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at,sync_state,expected_photo_count";
+async function selectPlaces(ownerId){
+ const q=()=>sb.from("places").select(PLACE_COLS+(HAS_COUNTRY?",country,country_code":"")).eq("owner_id",ownerId).eq("sync_state","ready").order("created_at",{ascending:false});
+ let r=await q();
+ if(r.error&&HAS_COUNTRY&&(r.error.code==="42703"||/country/i.test(r.error.message||""))){HAS_COUNTRY=false;console.warn("Pinpoint: country columns missing, run supabase_v2_2_migration.sql");r=await q()}
+ return r
+}
+function rowToPlace(r,by){return {id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private",syncState:"ready",expectedPhotoCount:r.expected_photo_count||0,country:r.country||"",countryCode:String(r.country_code||"").toLowerCase()}}
+function flag(cc){cc=String(cc||"").toUpperCase();return /^[A-Z]{2}$/.test(cc)?String.fromCodePoint(...[...cc].map(ch=>127397+ch.charCodeAt(0))):""}
+function countryCount(list){return new Set(list.map(p=>p.countryCode).filter(Boolean)).size}
+function statsText(list){let n=list.length,c=countryCount(list);return n+" "+(n===1?"Place":"Places")+" · "+c+" "+(c===1?"Country":"Countries")}
+function statsHTML(list){let n=list.length,c=countryCount(list);return "<span>"+n+" "+(n===1?"Place":"Places")+"</span><span>"+c+" "+(c===1?"Country":"Countries")+"</span>"}
+const countryCache=new Map(),countryTried=new Set();
+async function detectCountry(lat,lng){
+ let key=Number(lat).toFixed(3)+","+Number(lng).toFixed(3);if(countryCache.has(key))return countryCache.get(key);
+ let r=await withTimeout(fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=3&addressdetails=1&accept-language=en&lat="+lat+"&lon="+lng),8000,"Country lookup");
+ if(!r.ok)throw new Error("Country lookup failed");
+ let d=await r.json(),cc=d?.address?.country_code,out=cc?{name:d.address.country||"",code:String(cc).toLowerCase()}:null;
+ countryCache.set(key,out);return out
+}
+let backfillRunning=false;
+async function backfillCountries(){
+ if(backfillRunning||!HAS_COUNTRY||!authUser)return;backfillRunning=true;let uid=authUser.id;
+ try{
+  for(let p of places.filter(x=>!x.syncing&&!x.countryCode&&!countryTried.has(x.id))){
+   if(authUser?.id!==uid||!HAS_COUNTRY)break;countryTried.add(p.id);
+   let c=null;try{c=await detectCountry(p.lat,p.lng)}catch(e){console.warn("Country lookup",e)}
+   if(c){let {error}=await sb.from("places").update({country:c.name,country_code:c.code}).eq("id",p.id).eq("owner_id",uid);if(error){console.warn("Country save",error);break}for(let lp of places)if(lp.id===p.id){lp.country=c.name;lp.countryCode=c.code}render()}
+   await sleep(1100)
+  }
+ }finally{backfillRunning=false}
+}
+function routeSVG(route,w,h,cls){
+ let pts=route?.points;if(!Array.isArray(pts)||pts.length<2)return"";
+ let step=Math.max(1,Math.ceil(pts.length/300)),s=[];for(let i=0;i<pts.length;i+=step)s.push(pts[i]);if(s[s.length-1]!==pts[pts.length-1])s.push(pts[pts.length-1]);
+ let k=Math.cos(s.reduce((a,p)=>a+p.lat,0)/s.length*Math.PI/180),xs=s.map(p=>p.lng*k),ys=s.map(p=>-p.lat);
+ let minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys),pad=Math.max(4,Math.min(w,h)*.12);
+ let sc=Math.min((w-2*pad)/Math.max(maxx-minx,1e-9),(h-2*pad)/Math.max(maxy-miny,1e-9)),ox=(w-(maxx-minx)*sc)/2,oy=(h-(maxy-miny)*sc)/2;
+ let xy=s.map((p,i)=>[((xs[i]-minx)*sc+ox).toFixed(1),((ys[i]-miny)*sc+oy).toFixed(1)]),a=xy[0],b=xy[xy.length-1],big=w>60,sw=big?2.6:1.8,r=big?3.4:2.2;
+ return '<svg class="'+cls+'" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="Route outline"><polyline points="'+xy.map(q=>q.join(",")).join(" ")+'" fill="none" stroke="#fc4c02" stroke-width="'+sw+'" stroke-linejoin="round" stroke-linecap="round"/><circle cx="'+a[0]+'" cy="'+a[1]+'" r="'+r+'" fill="#fff" stroke="#16a34a" stroke-width="'+(big?2:1.4)+'"/><circle cx="'+b[0]+'" cy="'+b[1]+'" r="'+r+'" fill="#fff" stroke="#171717" stroke-width="'+(big?2:1.4)+'"/></svg>'
+}
+function renderRouteField(){
+ let el=$("routeField");if(!el)return;$("routeInfo").style.display="none";
+ if(draftRoute?.points?.length>1)el.innerHTML='<div class="routeAttach">'+routeSVG(draftRoute,84,52,"routeOutline small")+'<div style="flex:1;min-width:0"><b>'+esc(draftRoute.name||"Route")+'</b><div class="muted">↝ '+routeDistance(draftRoute)+(draftRoute.elevationGain?" · "+Math.round(draftRoute.elevationGain)+" m ascent":"")+'</div></div><button type="button" class="secondary" id="routeRemove">Remove</button></div>';
+ else el.innerHTML='<button type="button" class="secondary routeAdd" id="routeAdd">↝ Attach GPX route</button>';
+ if($("routeRemove"))$("routeRemove").onclick=()=>{draftRoute=null;renderRouteField()};
+ if($("routeAdd"))$("routeAdd").onclick=()=>$("gpxPaste").classList.add("open");
+}
+function curPlaces(){return viewing?viewing.places:places}
+async function viewUser(id,keepPage){
+ if(!authUser||!id)return;
+ if(id===authUser.id){exitViewing();page("places");return}
+ let seq=++viewSeq;
+ if(viewing?.id!==id)viewing={id,profile:null,places:[],following:false,loading:true};else viewing.loading=true;
+ updateViewUI();if(!keepPage)page("places");render();
+ try{
+  let [pr,ids]=await Promise.all([sb.from("profiles").select("id,username,first_name,avatar_url").eq("id",id).maybeSingle(),myFollowingIds()]);
+  if(seq!==viewSeq||viewing?.id!==id)return;
+  viewing.profile=pr.data||null;viewing.following=ids.has(id);viewing.places=[];
+  if(viewing.following){
+   let [{data:rows,error},{data:ph}]=await Promise.all([selectPlaces(id),sb.from("place_photos").select("place_id,storage_path,sort_order").eq("owner_id",id).order("sort_order",{ascending:true})]);
+   if(error)throw error;if(seq!==viewSeq||viewing?.id!==id)return;
+   let by={};for(let x of ph||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
+   viewing.places=(rows||[]).map(r=>rowToPlace(r,by));fitPending=viewing.places.length>0
+  }
+ }catch(e){console.error("View profile",e);cloudToast("Could not load profile · "+errText(e),4000)}
+ if(seq!==viewSeq||viewing?.id!==id)return;
+ viewing.loading=false;updateViewUI();await render();
+ if(fitPending&&$("mapPage").classList.contains("active")){fitPending=false;fitToList()}
+}
+function exitViewing(){if(!viewing)return;viewing=null;viewSeq++;fitPending=false;updateViewUI();render()}
+function fitToList(){let pts=curPlaces().map(p=>[p.lat,p.lng]);if(!pts.length)return;if(pts.length===1)map.setView(pts[0],12);else map.fitBounds(L.latLngBounds(pts),{padding:[40,40],maxZoom:12})}
+function updateViewUI(){
+ let v=viewing,h=$("viewHead");if(!h)return;
+ if(!v){h.innerHTML="";h.classList.remove("show");$("placesTitle").textContent="Places";$("search").placeholder="Search your places";$("mapSub").textContent="Move the map beneath the crosshair";return}
+ let p=v.profile||{},name=p.first_name||p.username||"";
+ h.classList.add("show");
+ h.innerHTML='<button class="secondary viewBack" id="viewBack">‹ My places</button><div class="viewCard">'+avatarHTML(p)+'<div style="min-width:0"><div class="personName">'+esc(name||(v.loading?"Loading…":"Unknown user"))+'</div><div class="personUser">'+(p.username?"@"+esc(p.username):"")+'</div></div>'+(v.profile?'<button class="followBtn '+(v.following?"following":"")+'" data-follow="'+v.id+'">'+(v.following?"Following":"Follow")+'</button>':'<span></span>')+'</div>';
+ $("placesTitle").textContent=name?name+"’s places":"Places";
+ $("search").placeholder="Search "+(name?name+"’s":"their")+" places";
+ $("mapSub").innerHTML="Viewing "+esc(p.username?"@"+p.username:"profile")+' · <button class="linkBtn" id="mapViewBack">Back to mine</button>';
+ $("viewBack").onclick=exitViewing;$("mapViewBack").onclick=exitViewing;bindFollowButtons()
+}
+function emptyHTML(){
+ if(viewing){
+  if(viewing.loading)return '<div class="empty">Loading places…</div>';
+  if(!viewing.profile)return '<div class="empty">This profile could not be loaded.</div>';
+  let n=esc(viewing.profile.first_name||viewing.profile.username);
+  if(!viewing.following)return '<div class="empty">Follow '+n+' to see their places.<div style="margin-top:12px"><button class="followBtn" data-follow="'+viewing.id+'">Follow</button></div></div>';
+  if(!viewing.places.length)return '<div class="empty">'+n+' hasn’t added any places yet.</div>'
+ }
+ return '<div class="empty">No places match these filters.</div>'
+}
+let searchSeq=0,searchTimer=null,searchHits=[];
+function hideSuggest(){$("mapSuggest").classList.remove("open")}
+function hitLabel(pr){let main=pr.name||[pr.street,pr.housenumber].filter(Boolean).join(" ")||pr.city||pr.state||pr.country||"Unnamed place",sub=[];for(let x of[pr.city,pr.county,pr.state,pr.country])if(x&&x!==main&&!sub.includes(x))sub.push(x);return{main,sub:sub.slice(0,3).join(", ")}}
+async function runMapSearch(go){
+ let q=$("mapSearch").value.trim(),seq=++searchSeq;
+ if(q.length<2){searchHits=[];hideSuggest();return}
+ let c=map.getCenter();
+ try{
+  let r=await fetch("https://photon.komoot.io/api/?q="+encodeURIComponent(q)+"&limit=6&lang=en&lat="+c.lat.toFixed(4)+"&lon="+c.lng.toFixed(4)+"&zoom="+Math.round(map.getZoom())+"&location_bias_scale=0.3");
+  if(!r.ok)throw new Error("Search failed");let d=await r.json();if(seq!==searchSeq)return;
+  searchHits=(d.features||[]).filter(f=>Array.isArray(f.geometry?.coordinates));
+  if(go&&searchHits.length){goToHit(0);return}
+  $("mapSuggest").innerHTML=searchHits.length?searchHits.map((f,i)=>{let pr=f.properties||{},l=hitLabel(pr);return '<button type="button" class="suggest" data-hit="'+i+'"><span class="suggestIcon">'+(flag(pr.countrycode)||"📍")+'</span><span><b>'+esc(l.main)+'</b>'+(l.sub?'<small>'+esc(l.sub)+'</small>':'')+'</span></button>'}).join(""):'<div class="suggestEmpty">No matching places</div>';
+  $("mapSuggest").classList.add("open");
+  document.querySelectorAll("[data-hit]").forEach(b=>b.onclick=()=>goToHit(+b.dataset.hit))
+ }catch(e){if(seq!==searchSeq)return;$("mapSuggest").innerHTML='<div class="suggestEmpty">Search is unavailable right now.</div>';$("mapSuggest").classList.add("open")}
+}
+function goToHit(i){
+ let f=searchHits[i];if(!f)return;let [lng,lat]=f.geometry.coordinates,pr=f.properties||{},e=pr.extent;
+ searchSeq++;hideSuggest();$("mapSearch").value=hitLabel(pr).main;$("mapSearchWrap").classList.add("hasText");$("mapSearch").blur();
+ let z={country:5,state:7,county:9,city:12,district:14,locality:14,street:16,house:17}[pr.type]||15;
+ if(Array.isArray(e)&&e.length===4&&["country","state","county","city","district","locality"].includes(pr.type)){try{z=Math.min(map.getBoundsZoom(L.latLngBounds([[e[1],e[0]],[e[3],e[2]]])),z+2)}catch(_){}}
+ map.setView([lat,lng],Math.max(2,Math.min(18,z)))
+}
+$("mapSearch").oninput=()=>{$("mapSearchWrap").classList.toggle("hasText",!!$("mapSearch").value);clearTimeout(searchTimer);searchTimer=setTimeout(()=>runMapSearch(false),300)};
+$("mapSearch").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();clearTimeout(searchTimer);if(searchHits.length&&$("mapSuggest").classList.contains("open"))goToHit(0);else runMapSearch(true)}else if(e.key==="Escape"){hideSuggest();$("mapSearch").blur()}};
+$("mapSearch").onfocus=()=>{if(searchHits.length&&$("mapSearch").value.trim().length>1)$("mapSuggest").classList.add("open")};
+$("mapSearchClear").onclick=()=>{$("mapSearch").value="";$("mapSearchWrap").classList.remove("hasText");searchHits=[];searchSeq++;hideSuggest();$("mapSearch").focus()};
+document.addEventListener("click",e=>{if(!e.target.closest("#mapSearchWrap"))hideSuggest()});
+
 let cloudLoadSeq=0;
 async function loadCloudPlaces(ownerId=authUser?.id){
  let seq=++cloudLoadSeq;if(!ownerId||authUser?.id!==ownerId)return false;
- let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at,sync_state,expected_photo_count").eq("owner_id",ownerId).eq("sync_state","ready").order("created_at",{ascending:false});
+ let {data:rows,error}=await selectPlaces(ownerId);
  if(error){console.error("Cloud places",error);cloudToast("Could not load places · "+errText(error),4000);return false}
  if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return false;
  let {data:photos,error:pe}=await sb.from("place_photos").select("place_id,storage_path,sort_order").eq("owner_id",ownerId).order("sort_order",{ascending:true});
  if(pe){console.error("Cloud photos",pe);photos=[]}
  if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return false;
  let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
- let ready=(rows||[]).filter(r=>!pendingDeletes.has(r.id)).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private",syncState:"ready",expectedPhotoCount:r.expected_photo_count||0}));
+ let ready=(rows||[]).filter(r=>!pendingDeletes.has(r.id)).map(r=>rowToPlace(r,by));
  let readyIds=new Set(ready.map(x=>x.id));
  for(let j of jobsForUser())if(readyIds.has(j.id)&&j.id!==syncingId)removeJob(j.id).catch(()=>{});
  let pending=jobsForUser().filter(j=>!readyIds.has(j.id)&&!pendingDeletes.has(j.id)).map(jobPlace);
  places=[...pending,...ready];
- await render();return true
+ await render();setTimeout(backfillCountries,1500);return true
 }
 function blobToDataURL(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){let a=s.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"application/octet-stream",b=atob(a[1]),n=b.length,u=new Uint8Array(n);while(n--)u[n]=b.charCodeAt(n);return new Blob([u],{type:m})}
@@ -361,28 +536,30 @@ async function restoreLocalData(file){
 function esc(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function emo(c){return(CATS.find(x=>x.name===c)||CATS.at(-1)).emoji}
 function starText(v){let s="";for(let i=1;i<=5;i++)s+=i<=Math.floor(v)?"★":v>=i-.5?"½":"☆";return s}
-function page(w){$("mapPage").classList.toggle("active",w==="map");$("placesPage").classList.toggle("active",w==="places");$("friendsPage").classList.toggle("active",w==="friends");$("profilePage").classList.toggle("active",w==="profile");$("mapBtn").classList.toggle("sel",w==="map");$("placesBtn").classList.toggle("sel",w==="places");$("friendsBtn").classList.toggle("sel",w==="friends");$("profileBtn").classList.toggle("sel",w==="profile");if(w==="map")setTimeout(()=>map.invalidateSize(),30);if(w==="friends"&&authUser)loadConnections();if(w==="profile"&&authUser)loadMyProfile()}
+function page(w){$("mapPage").classList.toggle("active",w==="map");$("placesPage").classList.toggle("active",w==="places");$("friendsPage").classList.toggle("active",w==="friends");$("profilePage").classList.toggle("active",w==="profile");$("mapBtn").classList.toggle("sel",w==="map");$("placesBtn").classList.toggle("sel",w==="places");$("friendsBtn").classList.toggle("sel",w==="friends");$("profileBtn").classList.toggle("sel",w==="profile");if(w==="map")setTimeout(()=>{map.invalidateSize();if(fitPending){fitPending=false;fitToList()}},30);if(w==="friends"&&authUser)loadConnections();if(w==="profile"&&authUser)loadMyProfile()}
 function save(){render()}
 function renderFilters(){$("filters").innerHTML=["All",...CATS.map(c=>c.name),"Visited","Want to visit"].map(x=>'<button class="chip '+(filter===x?"on":"")+'" data-f="'+x+'">'+(CATS.some(c=>c.name===x)?emo(x)+" ":"")+x+"</button>").join("");document.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{filter=b.dataset.f;render()})}
 async function render(){
- renderFilters();markers.clearLayers();routes.clearLayers();$("count").textContent=places.length+" "+(places.length===1?"place":"places");$("placeCount").textContent=places.length+" saved "+(places.length===1?"place":"places");
- places.forEach(p=>{if(p.route&&p.route.points&&p.route.points.length>1){let line=L.polyline(p.route.points.map(q=>[q.lat,q.lng]),{weight:5,opacity:.8}).addTo(routes);line.on("click",()=>openPlace(p.id))}let m=L.marker([p.lat,p.lng]).addTo(markers);m.bindPopup('<button style="border:0;background:none;text-align:left;padding:2px" data-popup="'+p.id+'"><b>'+esc(p.name)+'</b><br>'+emo(p.category)+' '+esc(p.category)+' · '+p.rating.toFixed(1)+' ★'+(p.route?'<br><b>↝ '+routeDistance(p.route)+'</b>':'')+'<br><small>Tap to open</small></button>');m.on("popupopen",()=>setTimeout(()=>{let b=document.querySelector('[data-popup="'+p.id+'"]');if(b)b.onclick=()=>openPlace(p.id)},0))});
+ let list=curPlaces(),ro=!!viewing;
+ renderFilters();markers.clearLayers();routes.clearLayers();$("count").innerHTML=statsHTML(list);$("placeCount").textContent=statsText(list);if($("myStats"))$("myStats").textContent=authUser?statsText(places):"";
+ list.forEach(p=>{if(p.route&&p.route.points&&p.route.points.length>1){let line=L.polyline(p.route.points.map(q=>[q.lat,q.lng]),{weight:5,opacity:.8}).addTo(routes);line.on("click",()=>openPlace(p.id))}let m=L.marker([p.lat,p.lng]).addTo(markers);m.bindPopup('<button style="border:0;background:none;text-align:left;padding:2px" data-popup="'+p.id+'"><b>'+esc(p.name)+'</b><br>'+emo(p.category)+' '+esc(p.category)+' · '+p.rating.toFixed(1)+' ★'+(p.route?'<br><b>↝ '+routeDistance(p.route)+'</b>':'')+'<br><small>Tap to open</small></button>');m.on("popupopen",()=>setTimeout(()=>{let b=document.querySelector('[data-popup="'+p.id+'"]');if(b)b.onclick=()=>openPlace(p.id)},0))});
  let q=$("search").value.trim().toLowerCase(),min=+$("ratingFilter").value;
- let shown=places.filter(p=>(filter==="All"||p.category===filter||p.status===filter)&&p.rating>=min&&(!q||[p.name,p.category,p.status,p.notes].join(" ").toLowerCase().includes(q)));
+ let shown=list.filter(p=>(filter==="All"||p.category===filter||p.status===filter)&&p.rating>=min&&(!q||[p.name,p.category,p.status,p.notes].join(" ").toLowerCase().includes(q)));
  let sort=$("sort").value;if(sort==="high")shown.sort((a,b)=>b.rating-a.rating);if(sort==="low")shown.sort((a,b)=>a.rating-b.rating);if(sort==="name")shown.sort((a,b)=>a.name.localeCompare(b.name));if(sort==="new")shown.sort((a,b)=>String(b.created).localeCompare(String(a.created)));
- $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+'</div>'+(p.syncing?(p.syncError?'<div class="syncFail">Upload failed · <button class="retrySync" data-retry="'+p.id+'">Retry</button><br>'+esc(p.syncError)+'</div>':'<div class="syncBadge">'+esc(p.syncPhase||"Saving…")+' · '+Math.round(p.syncProgress||5)+'%</div><div class="syncTrack"><div class="syncFill" style="width:'+Math.round(p.syncProgress||5)+'%"></div></div>'):'')+'</div><button class="secondary del" data-del="'+p.id+'">×</button></article>').join(""):'<div class="empty">No places match these filters.</div>';
+ $("places").innerHTML=shown.length?shown.map(p=>'<article class="place '+(p.syncing?"syncing":"")+'" data-id="'+p.id+'"><div class="thumb" id="cover-'+p.id+'">'+emo(p.category)+'</div><div><h3>'+esc(p.name)+'</h3><div class="meta">'+emo(p.category)+" "+esc(p.category)+" · "+esc(p.status)+(p.route?" · ↝ "+routeDistance(p.route):"")+(p.photos?.length?" · "+p.photos.length+" photo"+(p.photos.length===1?"":"s"):"")+'</div><div class="stars">'+starText(p.rating)+" "+p.rating.toFixed(1)+(p.route?routeSVG(p.route,46,26,"routeMini"):"")+'</div>'+(p.syncing?(p.syncError?'<div class="syncFail">Upload failed · <button class="retrySync" data-retry="'+p.id+'">Retry</button><br>'+esc(p.syncError)+'</div>':'<div class="syncBadge">'+esc(p.syncPhase||"Saving…")+' · '+Math.round(p.syncProgress||5)+'%</div><div class="syncTrack"><div class="syncFill" style="width:'+Math.round(p.syncProgress||5)+'%"></div></div>'):'')+'</div>'+(ro?'<span></span>':'<button class="secondary del" data-del="'+p.id+'">×</button>')+'</article>').join(""):emptyHTML();
  for(let p of shown){if(p.photos?.length){let u=await photoURL(p.photos[0]),c=$("cover-"+p.id);if(c&&u)c.outerHTML='<img class="thumb" src="'+u+'">'}}
  document.querySelectorAll("[data-id]").forEach(el=>el.onclick=e=>{if(e.target.closest(".del"))return;openPlace(el.dataset.id)});
  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this place?"))return;let p=places.find(x=>x.id===b.dataset.del);if(!p)return;b.disabled=true;b.textContent="…";try{await deletePlaceV2(p)}catch(e){b.disabled=false;b.textContent="×"}})
- document.querySelectorAll("[data-retry]").forEach(b=>b.onclick=e=>{e.stopPropagation();let id=b.dataset.retry;updateJob(id,{syncError:"",syncPhase:"Retrying…"});render();syncJob(id)})
+ document.querySelectorAll("[data-retry]").forEach(b=>b.onclick=e=>{e.stopPropagation();let id=b.dataset.retry;updateJob(id,{syncError:"",syncPhase:"Retrying…"});render();syncJob(id)});
+ if(viewing)bindFollowButtons()
 }
-async function openPlace(id){let p=places.find(x=>x.id===id);if(!p)return;currentPlaceId=id;let urls=[];for(let x of(p.photos||[])){let u=await photoURL(x);if(u)urls.push(u)}currentGalleryURLs=urls;$("galleryContent").innerHTML=(urls.length?'<div class="heroGallery">'+urls.map((u,i)=>'<img src="'+u+'" data-full="'+i+'">').join("")+'</div>':'<div class="empty" style="margin:14px">No photos yet.</div>')+'<div class="detail"><h1>'+esc(p.name)+'</h1><div class="meta">'+emo(p.category)+' '+esc(p.category)+' · '+esc(p.status)+'</div>'+(p.route?'<div class="detailBlock"><b>↝ Route length</b><div style="font-size:22px;margin-top:6px">'+routeDistance(p.route)+'</div></div>':'')+'<div class="detailBlock"><div class="detailRating">'+starText(p.rating)+' <b>'+p.rating.toFixed(1)+'</b></div></div>'+(p.notes?'<div class="detailBlock"><b>Comments</b><div style="margin-top:8px;white-space:pre-wrap">'+esc(p.notes)+'</div></div>':'')+'</div>';$("galleryPage").classList.add("open");document.querySelectorAll("[data-full]").forEach(x=>x.onclick=()=>openLightbox(+x.dataset.full))}
+async function openPlace(id){let p=curPlaces().find(x=>x.id===id);$("editPlace").style.display=viewing?"none":"";if(!p)return;currentPlaceId=id;let urls=[];for(let x of(p.photos||[])){let u=await photoURL(x);if(u)urls.push(u)}currentGalleryURLs=urls;$("galleryContent").innerHTML=(urls.length?'<div class="heroGallery">'+urls.map((u,i)=>'<img src="'+u+'" data-full="'+i+'">').join("")+'</div>':'<div class="empty" style="margin:14px">No photos yet.</div>')+'<div class="detail"><h1>'+esc(p.name)+'</h1><div class="meta">'+emo(p.category)+' '+esc(p.category)+' · '+esc(p.status)+(p.country?' · '+(flag(p.countryCode)?flag(p.countryCode)+' ':'')+esc(p.country):'')+'</div>'+(p.route?'<div class="detailBlock"><b>↝ Route length</b><div style="font-size:22px;margin-top:6px">'+routeDistance(p.route)+'</div></div>':'')+'<div class="detailBlock ratingRow"><div class="detailRating">'+starText(p.rating)+' <b>'+p.rating.toFixed(1)+'</b></div>'+(p.route?routeSVG(p.route,132,80,"routeOutline"):"")+'</div>'+(p.notes?'<div class="detailBlock"><b>Comments</b><div style="margin-top:8px;white-space:pre-wrap">'+esc(p.notes)+'</div></div>':'')+'</div>';$("galleryPage").classList.add("open");document.querySelectorAll("[data-full]").forEach(x=>x.onclick=()=>openLightbox(+x.dataset.full))}
 function openLightbox(start=0){$("lightboxTrack").innerHTML=currentGalleryURLs.map(u=>'<div class="lightboxSlide"><img src="'+u+'"></div>').join("");$("lightbox").classList.add("open");requestAnimationFrame(()=>{$("lightboxTrack").scrollLeft=start*$("lightboxTrack").clientWidth;updateLightboxCount()})}
 function updateLightboxCount(){let w=$("lightboxTrack").clientWidth||1,i=Math.round($("lightboxTrack").scrollLeft/w);$("lightboxCount").textContent=currentGalleryURLs.length?(i+1)+" / "+currentGalleryURLs.length:""}
-async function beginEdit(){let p=places.find(x=>x.id===currentPlaceId);if(!p)return;editingId=p.id;draftRoute=p.route||null;$("name").value=p.name;$("category").value=p.category;$("status").value=p.status;rating=p.rating;$("notes").value=p.notes||"";draftPhotos=[];renderPreviews();renderRate();$("coords").textContent=p.lat.toFixed(5)+", "+p.lng.toFixed(5);$("sheet").classList.add("open")}
+async function beginEdit(){if(viewing)return;let p=places.find(x=>x.id===currentPlaceId);if(!p)return;editingId=p.id;draftRoute=p.route||null;renderRouteField();$("name").value=p.name;$("category").value=p.category;$("status").value=p.status;rating=p.rating;$("notes").value=p.notes||"";draftPhotos=[];renderPreviews();renderRate();$("coords").textContent=p.lat.toFixed(5)+", "+p.lng.toFixed(5);$("sheet").classList.add("open")}
 function renderRate(){$("ratingText").textContent=rating.toFixed(1);$("rate").innerHTML=[1,2,3,4,5].map(n=>'<button type="button" class="star '+(rating>=n?"full":rating===n-.5?"half":"")+'" data-r="'+n+'">★</button>').join("");document.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{let n=+b.dataset.r;rating=rating===n?n-.5:n;renderRate()})}
 function infer(d){let t=((d.type||"")+" "+(d.category||"")+" "+(d.addresstype||"")).toLowerCase();if(t.includes("beach"))return"Beach";if(/restaurant|cafe|food/.test(t))return"Restaurant";if(/hotel|hostel|accommodation/.test(t))return"Accommodation";if(t.includes("viewpoint"))return"Viewpoint";if(/tourism|attraction|museum|historic/.test(t))return"Attraction";return"Other"}
-async function lookup(){let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("nearby").innerHTML="<b>Finding this place…</b><small>"+c.lat.toFixed(4)+", "+c.lng.toFixed(4)+"</small>";try{let r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat="+c.lat+"&lon="+c.lng+"&addressdetails=1",{headers:{"Accept-Language":"en"}}),d=await r.json();nearName=d.name||d.address?.beach||d.address?.attraction||d.address?.restaurant||d.address?.amenity||d.address?.village||d.address?.town||d.address?.city||(d.display_name||"").split(",")[0]||"Unnamed place";nearType=infer(d);$("nearby").innerHTML="<b>"+esc(nearName)+"</b><small>"+esc(nearType)+" · "+esc((d.display_name||"").split(",").slice(1,3).join(","))+"</small>"}catch(e){nearName="";$("nearby").innerHTML="<b>Selected location</b><small>"+c.lat.toFixed(4)+", "+c.lng.toFixed(4)+"</small>"}}
+async function lookup(){let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("nearby").innerHTML="<b>Finding this place…</b><small>"+c.lat.toFixed(4)+", "+c.lng.toFixed(4)+"</small>";try{let r=await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat="+c.lat+"&lon="+c.lng+"&addressdetails=1",{headers:{"Accept-Language":"en"}}),d=await r.json();nearName=d.name||d.address?.beach||d.address?.attraction||d.address?.restaurant||d.address?.amenity||d.address?.village||d.address?.town||d.address?.city||(d.display_name||"").split(",")[0]||"Unnamed place";nearType=infer(d);nearCountry=d.address?.country_code?{name:d.address.country||"",code:String(d.address.country_code).toLowerCase(),lat:c.lat,lng:c.lng}:null;$("nearby").innerHTML="<b>"+esc(nearName)+"</b><small>"+esc(nearType)+" · "+esc((d.display_name||"").split(",").slice(1,3).join(","))+"</small>"}catch(e){nearName="";nearCountry=null;$("nearby").innerHTML="<b>Selected location</b><small>"+c.lat.toFixed(4)+", "+c.lng.toFixed(4)+"</small>"}}
 map.on("moveend",()=>{clearTimeout(geoTimer);geoTimer=setTimeout(lookup,700)});
 function renderPreviews(){$("previews").innerHTML=draftPhotos.map((p,i)=>'<div class="preview"><img src="'+p.url+'"><button type="button" data-rm="'+i+'">×</button></div>').join("")+'<div class="tinyStatus" style="flex:0 0 100%;margin-top:4px">'+draftPhotos.length+' / 5 photos</div>';document.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{URL.revokeObjectURL(draftPhotos[+b.dataset.rm]?.url||"");draftPhotos.splice(+b.dataset.rm,1);renderPreviews()})}
 async function compress(file){
@@ -407,28 +584,28 @@ $("moreBtn").onclick=()=>$("moreMenu").classList.toggle("open");
 $("gpxBtn").onclick=()=>{$("moreMenu").classList.remove("open");$("gpxPaste").classList.add("open")};
 $("gpxPasteClose").onclick=()=>$("gpxPaste").classList.remove("open");
 $("gpxTryFile").onclick=()=>$("gpxFile").click();
-$("gpxPasteImport").onclick=()=>{try{let txt=$("gpxText").value.trim();if(!txt)throw new Error("empty");draftRoute=readGPX(txt);$("name").value=draftRoute.name;$("category").value="Hike";$("routeInfo").style.display="inline-block";$("routeInfo").textContent="↝ "+draftRoute.distanceKm.toFixed(1)+" km"+(draftRoute.elevationGain?" · "+Math.round(draftRoute.elevationGain)+" m ascent":"");$("gpxPaste").classList.remove("open");$("gpxText").value="";map.fitBounds(L.latLngBounds(draftRoute.points.map(q=>[q.lat,q.lng])),{padding:[30,30]})}catch(err){alert("That text does not appear to be a valid GPX route.")}};
-$("gpxFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let txt=await f.text();if(!/\.gpx$/i.test(f.name)&&!/<gpx[\s>]/i.test(txt))throw new Error("Not GPX");draftRoute=readGPX(txt);$("name").value=draftRoute.name;$("category").value="Hike";$("routeInfo").style.display="inline-block";$("routeInfo").textContent="↝ "+draftRoute.distanceKm.toFixed(1)+" km"+(draftRoute.elevationGain?" · "+Math.round(draftRoute.elevationGain)+" m ascent":"");map.fitBounds(L.latLngBounds(draftRoute.points.map(q=>[q.lat,q.lng])),{padding:[30,30]})}catch(err){draftRoute=null;alert("That GPX file could not be read.")}e.target.value=""};
-$("addBtn").onclick=()=>{if(!authUser){$("authPage").classList.add("open");setAuthMode("signin");authMsg("Sign in to add a Pinpoint.","err");return}editingId=null;draftRoute=null;$("routeInfo").style.display="none";draftPhotos=[];renderPreviews();rating=5;renderRate();$("notes").value="";let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("name").value=nearName||"";if(nearType&&CATS.some(x=>x.name===nearType))$("category").value=nearType;$("sheet").classList.add("open")};
+$("gpxPasteImport").onclick=()=>{try{let txt=$("gpxText").value.trim();if(!txt)throw new Error("empty");draftRoute=readGPX(txt);$("name").value=draftRoute.name;$("category").value="Hike";$("routeInfo").style.display="inline-block";renderRouteField();$("routeInfo").textContent="↝ "+draftRoute.distanceKm.toFixed(1)+" km"+(draftRoute.elevationGain?" · "+Math.round(draftRoute.elevationGain)+" m ascent":"");$("gpxPaste").classList.remove("open");$("gpxText").value="";map.fitBounds(L.latLngBounds(draftRoute.points.map(q=>[q.lat,q.lng])),{padding:[30,30]})}catch(err){alert("That text does not appear to be a valid GPX route.")}};
+$("gpxFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let txt=await f.text();if(!/\.gpx$/i.test(f.name)&&!/<gpx[\s>]/i.test(txt))throw new Error("Not GPX");draftRoute=readGPX(txt);$("name").value=draftRoute.name;$("category").value="Hike";$("routeInfo").style.display="inline-block";renderRouteField();$("routeInfo").textContent="↝ "+draftRoute.distanceKm.toFixed(1)+" km"+(draftRoute.elevationGain?" · "+Math.round(draftRoute.elevationGain)+" m ascent":"");map.fitBounds(L.latLngBounds(draftRoute.points.map(q=>[q.lat,q.lng])),{padding:[30,30]})}catch(err){draftRoute=null;alert("That GPX file could not be read.")}e.target.value=""};
+$("addBtn").onclick=()=>{if(!authUser){$("authPage").classList.add("open");setAuthMode("signin");authMsg("Sign in to add a Pinpoint.","err");return}if(viewing)exitViewing();editingId=null;draftRoute=null;$("routeInfo").style.display="none";renderRouteField();draftPhotos=[];renderPreviews();rating=5;renderRate();$("notes").value="";let c=map.getCenter();$("coords").textContent=c.lat.toFixed(5)+", "+c.lng.toFixed(5);$("name").value=nearName||"";if(nearType&&CATS.some(x=>x.name===nearType))$("category").value=nearType;$("sheet").classList.add("open")};
 $("closeBtn").onclick=()=>$("sheet").classList.remove("open");$("mapBtn").onclick=()=>page("map");$("friendsBtn").onclick=()=>page("friends");$("placesBtn").onclick=()=>page("places");$("profileBtn").onclick=()=>page("profile");$("search").oninput=render;
 $("friendsSignIn").onclick=$("profileSignIn").onclick=()=>{$("authPage").classList.add("open");setAuthMode("signin")};
 $("peopleSearch").oninput=()=>{clearTimeout(window._peopleTimer);window._peopleTimer=setTimeout(searchPeople,250)};
 $("followingTab").onclick=()=>{connectionMode="following";$("followingTab").classList.add("on");$("followersTab").classList.remove("on");loadConnections()};
 $("followersTab").onclick=()=>{connectionMode="followers";$("followersTab").classList.add("on");$("followingTab").classList.remove("on");loadConnections()};
 $("avatarBtn").onclick=()=>$("avatarFile").click();$("avatarFile").onchange=e=>uploadAvatar(e.target.files?.[0]);$("editProfileBtn").onclick=editMyProfile;$("backupBtn").onclick=backupLocalData;$("restoreBtn").onclick=()=>$("restoreFile").click();$("restoreFile").onchange=e=>{restoreLocalData(e.target.files?.[0]);e.target.value=""};$("profileSignOut").onclick=async()=>{await sb.auth.signOut();updateAuthUI(null);page("map")};
-$("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);satellite.addTo(map);mapStyle="Satellite"}else{map.removeLayer(satellite);explore.addTo(map);mapStyle="Explore"}$("styleBtn").textContent="◫ "+mapStyle};
+$("styleBtn").onclick=()=>{if(mapStyle==="Explore"){map.removeLayer(explore);satellite.addTo(map);mapStyle="Satellite"}else{map.removeLayer(satellite);mapStyle="Explore";addExplore()}$("styleBtn").textContent="◫ "+mapStyle};
 $("form").onsubmit=async e=>{e.preventDefault();let btn=e.submitter;if(btn)btn.disabled=true;try{
  if(!authUser)throw new Error("Sign in before saving a place.");
  if(editingId){
   let p=places.find(x=>x.id===editingId);if(!p)return;if(p.syncing)throw new Error("Wait for this place to finish saving before editing it.");
   if((p.photos?.length||0)+draftPhotos.length>5)throw new Error("A place can have a maximum of 5 photos.");
-  let vals={name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),route:draftRoute||p.route||null};
+  let vals={name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),route:draftRoute||null};
   let {error}=await sb.from("places").update({name:vals.name,category:vals.category,status:dbStatus(vals.status),rating:vals.rating,notes:vals.notes,route:vals.route,updated_at:new Date().toISOString()}).eq("id",p.id).eq("owner_id",authUser.id).eq("sync_state","ready");if(error)throw error;
   let refs=await uploadAdditionalPhotos(p,draftPhotos);Object.assign(p,vals);p.photos=[...(p.photos||[]),...refs];
   $("sheet").classList.remove("open");editingId=null;draftPhotos=[];renderPreviews();await loadCloudPlaces(authUser.id);cloudToast("Changes saved")
  }else{
   if(draftPhotos.length>5)throw new Error("A place can have a maximum of 5 photos.");
-  let c=map.getCenter(),id=crypto.randomUUID(),base={id,name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,route:draftRoute,created:new Date().toISOString()};
+  let c=map.getCenter(),id=crypto.randomUUID(),base={id,name:$("name").value.trim(),category:$("category").value,status:$("status").value,rating,notes:$("notes").value.trim(),lat:c.lat,lng:c.lng,route:draftRoute,created:new Date().toISOString()};if(nearCountry&&Math.abs(nearCountry.lat-c.lat)<1e-7&&Math.abs(nearCountry.lng-c.lng)<1e-7){base.country=nearCountry.name;base.countryCode=nearCountry.code}
   let optimistic=await stageJob(base,[...draftPhotos]);places.unshift(optimistic);
   $("sheet").classList.remove("open");draftPhotos=[];renderPreviews();await render();cloudToast("Saving…",1400);syncJob(id)
  }
