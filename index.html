@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V2.0.1 STAGE 1 RECONCILIATION FIX -->
+<title>Pinpoint</title><!-- V2.0.2 STAGE 1 FALSE-FAILURE FIX -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -236,16 +236,15 @@ async function syncJob(id){
   if(failed.length)throw new Error(failed.join(" · "));
   updateJob(id,{syncPhase:"Finalising…",syncProgress:95});await render();
   await withTimeout(finalizePlace(job),12000,"Finalising place");
-  // Keep the optimistic job until Supabase has positively returned the ready record.
-  // This prevents a successfully saved place disappearing during post-upload reconciliation.
+  // Confirm the actual persisted row and photo metadata. A briefly stale list refresh is
+  // not an upload failure, so do not require the immediate list to contain the ready row.
   updateJob(id,{syncPhase:"Confirming save…",syncProgress:98});await render();
   await withTimeout(verifyCloudPlace(authUser.id,id),12000,"Confirming saved place");
   await withTimeout(verifyCloudPhotos(authUser.id,id,job.photos.length),12000,"Confirming saved photos");
   await loadCloudPlaces(authUser.id);
-  let confirmed=places.some(p=>p.id===id&&p.syncState==="ready");
-  if(!confirmed)throw new Error("Saved in Supabase, but Pinpoint could not confirm the ready place yet. Tap Retry.");
   await removeJob(id);
-  await loadCloudPlaces(authUser.id);cloudToast("Saved",1600)
+  await loadCloudPlaces(authUser.id);
+  cloudToast("Saved",1600)
  }catch(e){console.error("Pinpoint save failed",id,e);updateJob(id,{syncError:errText(e),syncPhase:"Upload failed"});await render()}
  finally{syncRunning=false}
 }
