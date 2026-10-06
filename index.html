@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V2.0.4 STAGE 1 READY-STATE HANDOFF -->
+<title>Pinpoint</title><!-- V2.0.5 STAGE 1 SAVE + DELETE RECONCILIATION -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -239,13 +239,6 @@ async function syncJob(id){
   updateJob(id,{syncPhase:"Confirming cloud save…",syncProgress:98});await render();
   await withTimeout(verifyCloudPlace(authUser.id,id),22000,"Confirming ready place");
   await withTimeout(verifyCloudPhotos(authUser.id,id,job.photos.length),12000,"Confirming saved photos");
-  let confirmed=false;
-  for(let attempt=0;attempt<8&&!confirmed;attempt++){
-   await loadCloudPlaces(authUser.id);
-   confirmed=places.some(p=>p.id===id&&p.syncState==="ready");
-   if(!confirmed)await sleep(Math.min(1500,350*(attempt+1)));
-  }
-  if(!confirmed)throw new Error("Place is safely stored in Supabase, but the latest cloud list is not visible yet. Tap Retry.");
   await removeJob(id);
   await loadCloudPlaces(authUser.id);
   cloudToast("Saved",1600)
@@ -255,16 +248,34 @@ async function syncJob(id){
 async function resumeJobs(){if(!authUser||syncRunning)return;let j=jobsForUser().find(x=>!x.syncError);if(j)await syncJob(j.id)}
 async function deletePlaceV2(p){
  if(!authUser)throw new Error("Sign in required.");
- places=places.filter(x=>x.id!==p.id);await render();cloudToast("Deleting…",10000);
+ let ownerId=authUser.id,placeId=p.id;
+ places=places.filter(x=>x.id!==placeId);await render();cloudToast("Deleting…",10000);
  try{
-  let {data,error}=await withTimeout(sb.rpc("pinpoint_delete_place_v2",{p_id:p.id}),12000,"Deleting place");if(error)throw error;
-  await removeJob(p.id);
+  let {data,error}=await withTimeout(sb.rpc("pinpoint_delete_place_v2",{p_id:placeId}),12000,"Deleting place");if(error)throw error;
   let paths=Array.isArray(data)?data:[];
-  if(paths.length){let rm=await withTimeout(sb.storage.from("place-photos").remove(paths),20000,"Removing photos");if(rm.error)console.warn("Photo cleanup failed after DB delete",rm.error)}
-  await loadCloudPlaces(authUser.id);
-  if(places.some(x=>x.id===p.id))throw new Error("Supabase still contains this place.");
+  // Verify the database row is genuinely gone before clearing local pending state.
+  let gone=false;
+  for(let i=0;i<6;i++){
+   let chk=await sb.from("places").select("id").eq("id",placeId).eq("owner_id",ownerId).maybeSingle();
+   if(chk.error)throw chk.error;
+   if(!chk.data){gone=true;break}
+   await sleep(300*(i+1))
+  }
+  if(!gone)throw new Error("Supabase did not confirm deletion.");
+  await removeJob(placeId);
+  // Storage cleanup happens after the authoritative DB delete; failure here must not resurrect the place.
+  if(paths.length){
+   try{let rm=await withTimeout(sb.storage.from("place-photos").remove(paths),20000,"Removing photos");if(rm.error)console.warn("Photo cleanup failed after DB delete",rm.error)}
+   catch(storageErr){console.warn("Photo cleanup timed out after DB delete",storageErr)}
+  }
+  await loadCloudPlaces(ownerId);
   cloudToast("Deleted",1600)
- }catch(e){console.error("Pinpoint delete failed",e);await loadCloudPlaces(authUser.id);cloudToast("Delete failed · "+errText(e),4000);throw e}
+ }catch(e){
+  console.error("Pinpoint delete failed",e);
+  await loadCloudPlaces(ownerId);
+  cloudToast("Delete failed · "+errText(e),4000);
+  throw e
+ }
 }
 async function uploadAdditionalPhotos(place,items){
  if(!items.length)return[];
