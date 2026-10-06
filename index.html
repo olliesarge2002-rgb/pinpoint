@@ -147,8 +147,8 @@ function authMsg(message,type="ok"){let el=$("authMessage");el.textContent=messa
 function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage").textContent=""}
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
 function updateAuthUI(user){
- authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";signedPhotoCache.clear();
- if(authUser){let uid=authUser.id;places=[];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid)},0)}
+ let prevId=authUser?.id||null;authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";signedPhotoCache.clear();
+ if(authUser){let uid=authUser.id;if(uid!==prevId){places=[];render()}setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid);resumeJobs()},0)}
  else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=[];render()}
 }
 
@@ -211,11 +211,12 @@ async function uploadOne(job,ph,index){
  if(up.error)throw new Error("Photo "+(index+1)+": "+errText(up.error));
  await withTimeout(registerPhoto(job.id,ph,path),12000,"Registering photo "+(index+1));return path
 }
-let syncRunning=false;
+let syncRunning=false,syncingId=null;
+const pendingDeletes=new Set();
 async function syncJob(id){
  if(syncRunning)return;
  let job=readOutbox().find(x=>x.id===id);if(!job||!authUser||job.ownerId!==authUser.id)return;
- syncRunning=true;
+ syncRunning=true;syncingId=id;
  try{
   updateJob(id,{syncError:"",syncPhase:"Saving place…",syncProgress:10});await render();
   await withTimeout(beginPlace(job),12000,"Saving place");
@@ -239,20 +240,23 @@ async function syncJob(id){
   updateJob(id,{syncPhase:"Confirming cloud save…",syncProgress:98});await render();
   await withTimeout(verifyCloudPlace(authUser.id,id),22000,"Confirming ready place");
   await withTimeout(verifyCloudPhotos(authUser.id,id,job.photos.length),12000,"Confirming saved photos");
-  await removeJob(id);
-  places=[];await render();
+  let lp=places.find(x=>x.id===id);if(lp)Object.assign(lp,{syncing:false,syncState:"ready",storage:"cloud",syncError:"",photos:job.photos.map(ph=>"cloud:"+ph.storagePath)});
+  let cleanup=removeJob(id);
   await loadCloudPlaces(authUser.id);
+  await cleanup.catch(()=>{});
   cloudToast("Saved",1600)
  }catch(e){console.error("Pinpoint save failed",id,e);updateJob(id,{syncError:errText(e),syncPhase:"Upload failed"});await render()}
- finally{syncRunning=false}
+ finally{syncRunning=false;syncingId=null;setTimeout(resumeJobs,0)}
 }
 async function resumeJobs(){if(!authUser||syncRunning)return;let j=jobsForUser().find(x=>!x.syncError);if(j)await syncJob(j.id)}
 async function deletePlaceV2(p){
  if(!authUser)throw new Error("Sign in required.");
  let ownerId=authUser.id,placeId=p.id;
+ if(syncingId===placeId){cloudToast("Still saving this place · try again in a moment",3000);throw new Error("Place is still saving.")}
+ pendingDeletes.add(placeId);
  places=places.filter(x=>x.id!==placeId);await render();cloudToast("Deleting…",10000);
  try{
-  let {data,error}=await withTimeout(sb.rpc("pinpoint_delete_place_v2",{p_id:placeId}),12000,"Deleting place");if(error)throw error;
+  let {data,error}=await withTimeout(sb.rpc("pinpoint_delete_place_v2",{p_id:placeId}),12000,"Deleting place").catch(e=>({data:null,error:e}));
   let paths=Array.isArray(data)?data:[];
   // Verify the database row is genuinely gone before clearing local pending state.
   let gone=false;
@@ -262,17 +266,17 @@ async function deletePlaceV2(p){
    if(!chk.data){gone=true;break}
    await sleep(300*(i+1))
   }
-  if(!gone)throw new Error("Supabase did not confirm deletion.");
+  if(!gone)throw error||new Error("Supabase did not confirm deletion.");
   await removeJob(placeId);
   // Storage cleanup happens after the authoritative DB delete; failure here must not resurrect the place.
   if(paths.length){
    try{let rm=await withTimeout(sb.storage.from("place-photos").remove(paths),20000,"Removing photos");if(rm.error)console.warn("Photo cleanup failed after DB delete",rm.error)}
    catch(storageErr){console.warn("Photo cleanup timed out after DB delete",storageErr)}
   }
-  places=[];await render();
   await loadCloudPlaces(ownerId);
   cloudToast("Deleted",1600)
  }catch(e){
+  pendingDeletes.delete(placeId);
   console.error("Pinpoint delete failed",e);
   await loadCloudPlaces(ownerId);
   cloudToast("Delete failed · "+errText(e),4000);
@@ -317,7 +321,11 @@ async function loadCloudPlaces(ownerId=authUser?.id){
  if(pe){console.error("Cloud photos",pe);photos=[]}
  if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return false;
  let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
- places=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private",syncState:"ready",expectedPhotoCount:r.expected_photo_count||0}));
+ let ready=(rows||[]).filter(r=>!pendingDeletes.has(r.id)).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private",syncState:"ready",expectedPhotoCount:r.expected_photo_count||0}));
+ let readyIds=new Set(ready.map(x=>x.id));
+ for(let j of jobsForUser())if(readyIds.has(j.id)&&j.id!==syncingId)removeJob(j.id).catch(()=>{});
+ let pending=jobsForUser().filter(j=>!readyIds.has(j.id)&&!pendingDeletes.has(j.id)).map(jobPlace);
+ places=[...pending,...ready];
  await render();return true
 }
 function blobToDataURL(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
@@ -440,5 +448,6 @@ sb.auth.onAuthStateChange((event,session)=>{updateAuthUI(session?.user||null);if
 window.addEventListener("online",()=>{if(authUser)loadCloudPlaces(authUser.id)});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&authUser)loadCloudPlaces(authUser.id)});
 setAuthMode("signin");initAuth();
-if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+if("serviceWorker"in navigator){navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"}).catch(()=>{});navigator.serviceWorker.addEventListener("controllerchange",()=>{if(authUser)loadCloudPlaces(authUser.id)})}
+if("caches"in window)caches.keys().then(ks=>Promise.all(ks.map(k=>caches.open(k).then(c=>c.keys().then(rs=>Promise.all(rs.filter(r=>/supabase\.(co|in)\//.test(r.url)).map(r=>c.delete(r)))))))).catch(()=>{});
 </script></body></html>
