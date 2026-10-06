@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V2.0.3 STAGE 1 AUTHORITATIVE CLOUD RELOAD -->
+<title>Pinpoint</title><!-- V2.0.4 STAGE 1 READY-STATE HANDOFF -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -236,12 +236,18 @@ async function syncJob(id){
   if(failed.length)throw new Error(failed.join(" · "));
   updateJob(id,{syncPhase:"Finalising…",syncProgress:95});await render();
   await withTimeout(finalizePlace(job),12000,"Finalising place");
-  updateJob(id,{syncPhase:"Confirming save…",syncProgress:98});await render();
-  await withTimeout(verifyCloudPlace(authUser.id,id),12000,"Confirming saved place");
+  updateJob(id,{syncPhase:"Confirming cloud save…",syncProgress:98});await render();
+  await withTimeout(verifyCloudPlace(authUser.id,id),22000,"Confirming ready place");
   await withTimeout(verifyCloudPhotos(authUser.id,id,job.photos.length),12000,"Confirming saved photos");
+  let confirmed=false;
+  for(let attempt=0;attempt<8&&!confirmed;attempt++){
+   await loadCloudPlaces(authUser.id);
+   confirmed=places.some(p=>p.id===id&&p.syncState==="ready");
+   if(!confirmed)await sleep(Math.min(1500,350*(attempt+1)));
+  }
+  if(!confirmed)throw new Error("Place is safely stored in Supabase, but the latest cloud list is not visible yet. Tap Retry.");
   await removeJob(id);
-  let refreshed=await authoritativeCloudReload(authUser.id);
-  if(!refreshed)throw new Error("Saved successfully, but the cloud refresh did not complete.");
+  await loadCloudPlaces(authUser.id);
   cloudToast("Saved",1600)
  }catch(e){console.error("Pinpoint save failed",id,e);updateJob(id,{syncError:errText(e),syncPhase:"Upload failed"});await render()}
  finally{syncRunning=false}
@@ -283,34 +289,26 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
 let toastTimer;
 function cloudToast(msg,ms=1800){let el=$("cloudToast");if(!el)return;el.textContent=msg;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),ms)}
 async function retryCloud(fn,tries=3){let last;for(let i=0;i<tries;i++){try{return await fn()}catch(e){last=e;if(i<tries-1)await sleep(450*(i+1))}}throw last}
-async function verifyCloudPlace(ownerId,placeId){for(let i=0;i<5;i++){let {data,error}=await sb.from("places").select("id").eq("id",placeId).eq("owner_id",ownerId).maybeSingle();if(error)throw error;if(data?.id===placeId)return true;await sleep(250*(i+1))}throw new Error("Place was not confirmed in cloud storage.")}
+async function verifyCloudPlace(ownerId,placeId){for(let i=0;i<12;i++){let {data,error}=await sb.from("places").select("id,sync_state,expected_photo_count").eq("id",placeId).eq("owner_id",ownerId).maybeSingle();if(error)throw error;if(data?.id===placeId&&data.sync_state==="ready")return data;await sleep(Math.min(1500,300*(i+1)))}throw new Error("Place is saved, but Supabase has not returned its ready state yet. Tap Retry.")}
 async function verifyCloudPhotos(ownerId,placeId,expected){if(!expected)return true;for(let i=0;i<5;i++){let {data,error}=await sb.from("place_photos").select("id").eq("owner_id",ownerId).eq("place_id",placeId);if(error)throw error;if((data||[]).length>=expected)return true;await sleep(250*(i+1))}throw new Error("Photos were not confirmed in cloud storage.")}
 
 function mimeExt(type=""){type=String(type).toLowerCase();if(type.includes("png"))return"png";if(type.includes("webp"))return"webp";if(type.includes("heic"))return"heic";if(type.includes("heif"))return"heif";return"jpg"}
 
 let cloudLoadSeq=0;
-async function loadCloudPlaces(ownerId=authUser?.id,force=false){
- let seq=++cloudLoadSeq;if(!ownerId||authUser?.id!==ownerId)return false;
+async function loadCloudPlaces(ownerId=authUser?.id){
+ let seq=++cloudLoadSeq;if(!ownerId||authUser?.id!==ownerId)return;
  let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at,sync_state,expected_photo_count").eq("owner_id",ownerId).order("created_at",{ascending:false});
- if(error){console.error("Cloud places",error);cloudToast("Could not load places · "+errText(error),4000);return false}
- if(authUser?.id!==ownerId||(!force&&seq!==cloudLoadSeq))return false;
+ if(error){console.error("Cloud places",error);cloudToast("Could not load places · "+errText(error),4000);return}
+ if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return;
  let {data:photos,error:pe}=await sb.from("place_photos").select("place_id,storage_path,sort_order").eq("owner_id",ownerId).order("sort_order",{ascending:true});
  if(pe){console.error("Cloud photos",pe);photos=[]}
- if(authUser?.id!==ownerId||(!force&&seq!==cloudLoadSeq))return false;
+ if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return;
  let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
  let server=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private",syncState:r.sync_state||"ready",expectedPhotoCount:r.expected_photo_count||0}));
  let jobs=jobsForUser(),jm=new Map(jobs.map(j=>[j.id,j]));
  places=server.filter(p=>p.syncState==="ready"||jm.has(p.id)).map(p=>jm.has(p.id)?{...p,...jobPlace(jm.get(p.id))}:p);
  for(let j of jobs)if(!places.some(p=>p.id===j.id))places.unshift(jobPlace(j));
- await render();return true
-}
-async function authoritativeCloudReload(ownerId){
- if(!ownerId||authUser?.id!==ownerId)return false;
- // Throw away the current in-memory list and rebuild it from Supabase.
- places=[];await render();
- // Small post-finalise delay avoids an immediate stale read at the API edge.
- await sleep(500);
- return await loadCloudPlaces(ownerId,true)
+ await render()
 }
 function blobToDataURL(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){let a=s.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"application/octet-stream",b=atob(a[1]),n=b.length,u=new Uint8Array(n);while(n--)u[n]=b.charCodeAt(n);return new Blob([u],{type:m})}
