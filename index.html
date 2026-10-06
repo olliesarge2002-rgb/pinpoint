@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
-<title>Pinpoint</title><!-- V2.0.5 STAGE 1 SAVE + DELETE RECONCILIATION -->
+<title>Pinpoint</title><!-- V2.1 SUPABASE AUTHORITATIVE STATE -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#171717;--muted:#737373;--line:#e6e6e2;--accent:#176b51}
@@ -148,7 +148,7 @@ function clearAuthMsg(){$("authMessage").className="authMessage";$("authMessage"
 function setAuthMode(mode){authMode=mode;clearAuthMsg();$("signInTab").classList.toggle("on",mode==="signin");$("signUpTab").classList.toggle("on",mode==="signup");$("signupFields").classList.toggle("show",mode==="signup");$("authFirstName").required=mode==="signup";$("authUsername").required=mode==="signup";$("authSubmit").textContent=mode==="signin"?"Sign in":"Create account";$("authPassword").autocomplete=mode==="signin"?"current-password":"new-password"}
 function updateAuthUI(user){
  authUser=user||null;$("authSignedOut").style.display=authUser?"none":"block";$("authSignedIn").style.display=authUser?"block":"none";$("accountEmail").textContent=authUser?.email||"";$("accountBtn").textContent=authUser?"Signed in":"Sign in";$("friendsSignedOut").style.display=authUser?"none":"block";$("friendsSignedIn").style.display=authUser?"block":"none";$("profileSignedOut").style.display=authUser?"none":"block";$("profileSignedIn").style.display=authUser?"block":"none";signedPhotoCache.clear();
- if(authUser){let uid=authUser.id;places=[];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid);resumeJobs()},0)}
+ if(authUser){let uid=authUser.id;places=[];render();setTimeout(async()=>{if(authUser?.id!==uid)return;loadMyProfile();await loadCloudPlaces(uid)},0)}
  else{cloudLoadSeq++;myProfile=null;$("connections").innerHTML="";places=[];render()}
 }
 
@@ -240,6 +240,7 @@ async function syncJob(id){
   await withTimeout(verifyCloudPlace(authUser.id,id),22000,"Confirming ready place");
   await withTimeout(verifyCloudPhotos(authUser.id,id,job.photos.length),12000,"Confirming saved photos");
   await removeJob(id);
+  places=[];await render();
   await loadCloudPlaces(authUser.id);
   cloudToast("Saved",1600)
  }catch(e){console.error("Pinpoint save failed",id,e);updateJob(id,{syncError:errText(e),syncPhase:"Upload failed"});await render()}
@@ -268,6 +269,7 @@ async function deletePlaceV2(p){
    try{let rm=await withTimeout(sb.storage.from("place-photos").remove(paths),20000,"Removing photos");if(rm.error)console.warn("Photo cleanup failed after DB delete",rm.error)}
    catch(storageErr){console.warn("Photo cleanup timed out after DB delete",storageErr)}
   }
+  places=[];await render();
   await loadCloudPlaces(ownerId);
   cloudToast("Deleted",1600)
  }catch(e){
@@ -307,19 +309,16 @@ function mimeExt(type=""){type=String(type).toLowerCase();if(type.includes("png"
 
 let cloudLoadSeq=0;
 async function loadCloudPlaces(ownerId=authUser?.id){
- let seq=++cloudLoadSeq;if(!ownerId||authUser?.id!==ownerId)return;
- let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at,sync_state,expected_photo_count").eq("owner_id",ownerId).order("created_at",{ascending:false});
- if(error){console.error("Cloud places",error);cloudToast("Could not load places · "+errText(error),4000);return}
- if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return;
+ let seq=++cloudLoadSeq;if(!ownerId||authUser?.id!==ownerId)return false;
+ let {data:rows,error}=await sb.from("places").select("id,name,category,status,rating,notes,latitude,longitude,route,visibility,created_at,updated_at,sync_state,expected_photo_count").eq("owner_id",ownerId).eq("sync_state","ready").order("created_at",{ascending:false});
+ if(error){console.error("Cloud places",error);cloudToast("Could not load places · "+errText(error),4000);return false}
+ if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return false;
  let {data:photos,error:pe}=await sb.from("place_photos").select("place_id,storage_path,sort_order").eq("owner_id",ownerId).order("sort_order",{ascending:true});
  if(pe){console.error("Cloud photos",pe);photos=[]}
- if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return;
+ if(authUser?.id!==ownerId||seq!==cloudLoadSeq)return false;
  let by={};for(let x of photos||[])(by[x.place_id]||(by[x.place_id]=[])).push("cloud:"+x.storage_path);
- let server=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private",syncState:r.sync_state||"ready",expectedPhotoCount:r.expected_photo_count||0}));
- let jobs=jobsForUser(),jm=new Map(jobs.map(j=>[j.id,j]));
- places=server.filter(p=>p.syncState==="ready"||jm.has(p.id)).map(p=>jm.has(p.id)?{...p,...jobPlace(jm.get(p.id))}:p);
- for(let j of jobs)if(!places.some(p=>p.id===j.id))places.unshift(jobPlace(j));
- await render()
+ places=(rows||[]).map(r=>({id:r.id,name:r.name,category:r.category,status:uiStatus(r.status),rating:Number(r.rating||0),notes:r.notes||"",lat:r.latitude,lng:r.longitude,route:r.route||null,photos:by[r.id]||[],created:r.created_at,storage:"cloud",visibility:r.visibility||"private",syncState:"ready",expectedPhotoCount:r.expected_photo_count||0}));
+ await render();return true
 }
 function blobToDataURL(blob){return new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(blob)})}
 function dataURLToBlob(s){let a=s.split(","),m=(a[0].match(/:(.*?);/)||[])[1]||"application/octet-stream",b=atob(a[1]),n=b.length,u=new Uint8Array(n);while(n--)u[n]=b.charCodeAt(n);return new Blob([u],{type:m})}
@@ -438,8 +437,8 @@ $("authForm").onsubmit=async e=>{e.preventDefault();clearAuthMsg();let email=$("
 $("signOutBtn").onclick=async()=>{let {error}=await sb.auth.signOut();if(error){alert(error.message);return}updateAuthUI(null);setAuthMode("signin")};
 sb.auth.onAuthStateChange((event,session)=>{updateAuthUI(session?.user||null);if(event==="SIGNED_IN"&&session?.user){$("authPage").classList.remove("open")}});
 
-window.addEventListener("online",()=>{if(authUser)loadCloudPlaces(authUser.id).then(resumeJobs)});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&authUser)loadCloudPlaces(authUser.id).then(resumeJobs)});
+window.addEventListener("online",()=>{if(authUser)loadCloudPlaces(authUser.id)});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&authUser)loadCloudPlaces(authUser.id)});
 setAuthMode("signin");initAuth();
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
 </script></body></html>
