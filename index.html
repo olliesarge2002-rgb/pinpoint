@@ -257,6 +257,9 @@ button.followStat:active{background:var(--surface-2)}
 .pinTile{aspect-ratio:1;border:0;padding:0;background:var(--surface-2);display:block;overflow:hidden;cursor:pointer}
 .pinTile img{width:100%;height:100%;object-fit:cover;display:block}
 .pinTile:active{opacity:.75}
+.pinTile{position:relative}
+.pinStack{position:absolute;top:7px;right:7px;width:22px;height:22px;color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.pinStack svg{width:100%;height:100%;stroke:currentColor;fill:none;stroke-width:2;stroke-linejoin:round}
 .pinEmpty{padding:20px 16px;font-size:14px}
 .pinBtn,.lbPin{position:absolute;top:10px;right:10px;z-index:2;width:38px;height:38px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:transform .12s ease,background-color .15s}
 .pinBtn svg,.lbPin svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
@@ -1339,7 +1342,7 @@ function openPlace(id, opts = {}) {
   currentPlaceId = id;
   let mine = isMine(p), visited = p.status === "Visited", rows = p.photoRows || [];
   let items = (p.photos || []).map((ref) => ({ ref, row: rows.find((r) => "cloud:" + r.path === ref) || null }));
-  if (opts.pinnedOnly) { let pinned = items.filter((x) => x.row?.pinnedAt); if (pinned.length) items = pinned; }
+  if (opts.pinnedOnly) { let pinned = items.filter((x) => x.row?.pinnedAt).sort((a, b) => String(a.row.pinnedAt).localeCompare(String(b.row.pinnedAt))); if (pinned.length) items = pinned; }
   currentPhotos = items;
   let canPin = canPinPlace(p);
   $("editPlace").hidden = !mine || !!p.syncing;
@@ -1980,15 +1983,22 @@ function renderProfileStats() {
   renderPins();
 }
 // Pinned photos: an Instagram-style grid on the profile.
-function pinnedItems(list) {
-  let out = [];
-  for (let p of list) if (!p.syncing && p.status === "Visited") for (let r of p.photoRows || []) if (r.pinnedAt) out.push({ p, r, ref: "cloud:" + r.path });
-  return out.sort((a, b) => String(b.r.pinnedAt).localeCompare(String(a.r.pinnedAt)));
+// Pinned photos are grouped per place: one tile per place, showing the photo pinned first.
+function pinnedGroups(list) {
+  let groups = [];
+  for (let p of list) {
+    if (p.syncing || p.status !== "Visited") continue;
+    let rows = (p.photoRows || []).filter((r) => r.pinnedAt).sort((a, b) => String(a.pinnedAt).localeCompare(String(b.pinnedAt)));
+    if (rows.length) groups.push({ p, rows, cover: rows[0], ref: "cloud:" + rows[0].path });
+  }
+  return groups.sort((a, b) => String(b.cover.pinnedAt).localeCompare(String(a.cover.pinnedAt)));
 }
+function pinnedItems(list) { return pinnedGroups(list).map((g) => ({ p: g.p, r: g.cover, ref: g.ref })); }
+const STACK_SVG = '<svg viewBox="0 0 24 24"><rect x="8" y="3" width="13" height="13" rx="2"/><path d="M16 19v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h1"/></svg>';
 function pinsHTML(list, mine) {
-  let items = pinnedItems(list);
-  if (!items.length) return mine ? '<div class="empty pinEmpty"><b>No pinned photos yet</b>Open one of your places and tap the 📌 on a photo to show it here.</div>' : "";
-  return '<div class="pinGrid">' + items.map((x) => { let u = cachedURL(x.ref); return '<button class="pinTile" data-pinopen="' + x.p.id + '" data-pinrow="' + x.r.id + '" aria-label="' + esc(x.p.name) + '">' + (u ? '<img src="' + esc(u) + '" alt="" decoding="async">' : "") + "</button>"; }).join("") + "</div>";
+  let groups = pinnedGroups(list);
+  if (!groups.length) return mine ? '<div class="empty pinEmpty"><b>No pinned photos yet</b>Open one of your places and tap the 📌 on a photo to show it here.</div>' : "";
+  return '<div class="pinGrid">' + groups.map((g) => { let u = cachedURL(g.ref), n = g.rows.length; return '<button class="pinTile" data-pinopen="' + g.p.id + '" aria-label="' + esc(g.p.name) + (n > 1 ? ", " + n + " photos" : "") + '">' + (u ? '<img src="' + esc(u) + '" alt="" decoding="async">' : "") + (n > 1 ? '<span class="pinStack">' + STACK_SVG + "</span>" : "") + "</button>"; }).join("") + "</div>";
 }
 function renderPins() {
   let el = $("myPins"); if (!authUser || !el) return;
@@ -2143,7 +2153,7 @@ document.addEventListener("click", async (e) => {
   if (!t || t.closest("#countriesContent .cRow")) return;
   let d = t.dataset;
   if (d.pin) { e.stopPropagation(); return togglePin(d.pin); }
-  if (d.pinopen) return openPlace(d.pinopen, { pinnedOnly: true, startRow: d.pinrow });
+  if (d.pinopen) return openPlace(d.pinopen, { pinnedOnly: true });
   if (d.follow) { e.stopPropagation(); return toggleFollow(d.follow, t); }
   if (d.view) return viewUser(d.view);
   if (d.retry) { updateJob(d.retry, { syncError: "", syncPhase: "Retrying…" }); render(); return syncJob(d.retry); }
