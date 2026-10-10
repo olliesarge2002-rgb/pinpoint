@@ -223,6 +223,50 @@ body.picking .crosshair i{background:var(--accent);border-color:var(--accent)}
 .feedBody .thumb{width:64px;height:64px;font-size:24px}
 .feedBody h3{margin:0 0 3px;font-size:16px}
 .feedMore{display:block;margin:4px auto 0}
+/* Social feed posts */
+.feed{gap:16px}
+.post{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+.postHead{display:flex;align-items:center;gap:10px;padding:12px 14px;border:0;background:none;width:100%;text-align:left;cursor:pointer}
+.postHead .avatar{width:36px;height:36px;font-size:14px}
+.postHead b{display:block;font-size:15px;color:var(--ink);line-height:1.2}
+.postHead small{display:block;font-size:13px;color:var(--muted);line-height:1.3}
+.postMedia{position:relative;background:var(--surface-2);cursor:pointer}
+.postTrack{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.postTrack::-webkit-scrollbar{display:none}
+.postTrack img{flex:0 0 100%;width:100%;aspect-ratio:4/5;object-fit:cover;scroll-snap-align:center;display:block;background:var(--surface-2);opacity:0;transition:opacity .25s}
+.postTrack img.loaded{opacity:1}
+.postEmpty{aspect-ratio:16/9;display:grid;place-items:center;font-size:56px;background:var(--accent-soft)}
+.postDots{position:absolute;left:0;right:0;bottom:10px;display:flex;justify-content:center;gap:5px;pointer-events:none}
+.postDots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55)}
+.postDots i.on{background:#fff}
+.postCount{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:700;border-radius:999px;padding:3px 9px;pointer-events:none}
+.postBar{display:flex;align-items:center;gap:8px;padding:10px 12px 0}
+.postBar .reactBar{flex:1;min-width:0}
+.postBody{padding:8px 14px 14px;cursor:pointer}
+.postBody h3{margin:0;font-size:17px;line-height:1.25}
+.postBody .meta{font-size:13px;color:var(--muted);margin-top:2px}
+.postBody .stars{margin-top:4px}
+.postNotes{margin-top:6px;font-size:15px;line-height:1.45;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line}
+/* Reactions */
+.reactBar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.reactAdd{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;height:34px;min-width:44px;padding:0 10px;display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:16px}
+.reactAdd svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.reactAdd.mine{background:var(--accent-soft);border-color:transparent}
+.reactSum{border:0;background:var(--surface-2);color:var(--ink);border-radius:999px;height:34px;padding:0 11px;display:inline-flex;align-items:center;gap:4px;font-size:15px}
+.reactSum b{font-size:13px;margin-left:2px}
+.reactPicker{position:fixed;z-index:5100;display:none;gap:2px;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow-lg)}
+.reactPicker.open{display:flex;animation:pop .16s cubic-bezier(.2,.8,.2,1)}
+.reactPicker button{border:0;background:none;width:46px;height:46px;border-radius:50%;font-size:26px;display:grid;place-items:center;transition:transform .12s}
+.reactPicker button:active{transform:scale(1.25)}
+.reactPicker button.on{background:var(--accent-soft)}
+/* Save to my places */
+.saveBtn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;height:34px;padding:0 13px;font-size:13px;font-weight:750;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.saveBtn.saved{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.saveRow{display:flex;gap:8px;margin-top:12px}
+.saveRow .btn{flex:1}
+.saveRow .btn.saved{background:var(--accent-soft);color:var(--accent)}
+.detailReact{margin-top:14px}
+.personUser .pc{color:var(--ink-2);font-weight:650}
 
 /* ---------- Profile ---------- */
 .profileHero{padding:18px 16px 16px}
@@ -252,7 +296,27 @@ button.followStat:active{background:var(--surface-2)}
 .listRow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px;width:100%;border:0;background:none;text-align:left;font-size:15px}
 .listRow span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .listRow.danger{color:var(--danger);font-weight:700;justify-content:center}
-.accountCard{margin-top:28px}
+.accountCard{margin-top:14px}
+.settingsCard .listRow{color:var(--ink);text-decoration:none}
+.settingsCard .listRow+.listRow,.blockedRow+.blockedRow{border-top:1px solid var(--line)}
+.listRow .chev,.navRow .chev{color:var(--muted);font-size:20px;line-height:1}
+.deleteAccountLink{display:block;margin:18px auto 6px;border:0;background:none;color:var(--muted);font-size:14px;font-weight:650;text-decoration:underline;text-underline-offset:3px;padding:8px}
+.screenIntro{font-size:14px;line-height:1.45;margin:6px 2px 14px}
+.blockedRow{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:11px 14px}
+.deleteCard{padding:18px;margin-top:6px}
+.deleteCard h2{margin:0 0 8px;font-size:19px}
+.deleteCard p{margin:0 0 8px;line-height:1.45;font-size:15px}
+.deleteCard ul{margin:0 0 12px;padding-left:20px;line-height:1.55;font-size:15px}
+.deleteCard .field{margin-top:14px}
+.deleteProgress{font-size:14px;color:var(--muted);margin:4px 0 10px}
+.agreeRow{display:none;gap:10px;align-items:flex-start;font-size:13px;line-height:1.4;color:var(--ink-2);margin:2px 0 14px}
+.agreeRow input{width:20px;height:20px;flex:0 0 auto;margin:1px 0 0;accent-color:var(--accent)}
+.agreeRow a{color:var(--accent);font-weight:700}
+.dlgActions{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.dlgActions .btn{width:100%;justify-content:center}
+.heroMore{position:absolute;top:12px;right:12px}
+.profileHero{position:relative}
+.blockedNote{margin-top:12px;padding:12px;border-radius:14px;background:var(--surface-2);font-size:14px;color:var(--ink-2)}
 .pinGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;border-radius:16px;overflow:hidden}
 .pinTile{aspect-ratio:1;border:0;padding:0;background:var(--surface-2);display:block;overflow:hidden;cursor:pointer}
 .pinTile img{width:100%;height:100%;object-fit:cover;display:block}
@@ -412,6 +476,8 @@ button.followStat:active{background:var(--surface-2)}
 .authMessage.err{background:var(--danger-soft);color:var(--danger)}
 .signupOnly{display:none}
 .signupOnly.show{display:block}
+.agreeRow.signupOnly.show{display:flex}
+.dotsIcon circle{fill:currentColor;stroke:none}
 
 /* ---------- Countries ---------- */
 .bigStats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
@@ -443,7 +509,7 @@ button.followStat:active{background:var(--surface-2)}
 .cPlace b{font-weight:650;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cPlace span{color:var(--muted);font-size:12px}
 
-@media (min-width:600px){.typeGrid{grid-template-columns:repeat(7,1fr)}}
+@media (min-width:600px){.typeGrid{grid-template-columns:repeat(8,1fr)}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -558,10 +624,17 @@ button.followStat:active{background:var(--surface-2)}
     </button>
     <h2 class="sectionTitle">Pinned</h2>
     <div id="myPins"></div>
+    <h2 class="sectionTitle">Privacy &amp; safety</h2>
+    <div class="card list settingsCard">
+      <button class="listRow navish" id="blockedBtn"><span>Blocked accounts</span><span class="chev">›</span></button>
+      <a class="listRow navish" href="privacy.html" target="_blank" rel="noopener"><span>Privacy policy</span><span class="chev">›</span></a>
+      <a class="listRow navish" href="terms.html" target="_blank" rel="noopener"><span>Terms &amp; community guidelines</span><span class="chev">›</span></a>
+    </div>
     <div class="card list accountCard">
       <div class="listRow"><span class="muted" style="font-size:15px">Email</span><span id="myEmail"></span></div>
       <button class="listRow danger" id="profileSignOut">Sign out</button>
     </div>
+    <button class="deleteAccountLink" id="deleteAccountBtn">Delete account</button>
   </div>
 </div></section>
 </div>
@@ -581,6 +654,7 @@ button.followStat:active{background:var(--surface-2)}
     <button class="iconBtn" id="galleryBack" aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
     <div class="screenTitle" id="galleryTitle"></div>
     <button class="btn secondary small" id="editPlace">Edit</button>
+    <button class="iconBtn" id="placeMore" aria-label="More options" hidden><svg class="dotsIcon" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
   </div>
   <div id="galleryContent"></div>
 </div>
@@ -593,6 +667,44 @@ button.followStat:active{background:var(--surface-2)}
     <div class="spacer"></div>
   </div>
   <div class="screenBody" id="countriesContent"></div>
+</div>
+
+<!-- ================= BLOCKED ACCOUNTS ================= -->
+<div class="screen" id="blockedPage" aria-label="Blocked accounts">
+  <div class="screenTop">
+    <button class="iconBtn" id="blockedBack" aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="screenTitle">Blocked accounts</div>
+    <div class="spacer"></div>
+  </div>
+  <div class="screenBody">
+    <p class="muted screenIntro">Blocked people can’t find you, follow you or see your places, and you won’t see theirs. They aren’t told when you block them.</p>
+    <div class="card list" id="blockedList"></div>
+  </div>
+</div>
+
+<!-- ================= DELETE ACCOUNT ================= -->
+<div class="screen" id="deletePage" aria-label="Delete account">
+  <div class="screenTop">
+    <button class="iconBtn" id="deleteBack" aria-label="Back"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+    <div class="screenTitle">Delete account</div>
+    <div class="spacer"></div>
+  </div>
+  <div class="screenBody">
+    <div class="card deleteCard">
+      <h2>Permanently delete your account?</h2>
+      <p>This deletes, straight away and for good:</p>
+      <ul>
+        <li>Your account, email address and sign-in</li>
+        <li>Your profile, name, username and profile picture</li>
+        <li>All your places, photos, notes, ratings and routes</li>
+        <li>Your reactions, followers, who you follow and your blocked list</li>
+      </ul>
+      <p class="muted">It can’t be undone. If you might come back, you can sign out instead.</p>
+      <div class="field"><label for="deleteConfirm">Type “DELETE” to confirm</label><input id="deleteConfirm" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="DELETE"></div>
+      <div class="deleteProgress" id="deleteProgress" hidden></div>
+      <button class="btn danger block" id="deleteGo" disabled>Delete my account</button>
+    </div>
+  </div>
 </div>
 
 <!-- ================= AUTH ================= -->
@@ -614,6 +726,7 @@ button.followStat:active{background:var(--surface-2)}
         </div>
         <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
         <div class="field"><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"></div>
+        <label class="signupOnly agreeRow" id="agreeRow"><input type="checkbox" id="authAgree"><span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms &amp; community guidelines</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a>. There’s no tolerance for objectionable content or abusive users.</span></label>
         <button class="btn primary block" id="authSubmit" type="submit">Sign in</button>
       </form>
       <div class="authMessage" id="authMessage"></div>
@@ -667,8 +780,7 @@ button.followStat:active{background:var(--surface-2)}
       <div class="field visitedOnly" id="photosField">
         <div class="fieldLabel">Photos<span class="optional" id="photoCount">0 of 5</span></div>
         <div class="photoGrid" id="previews"></div>
-        <div class="hint" id="photoHint">The first photo is the cover. Tap another photo to make it the cover. <button type="button" class="linkBtn" id="multiPick">Select several at once</button></div>
-        <input id="photos" type="file" accept="image/*" hidden>
+        <div class="hint" id="photoHint">Choose up to 5 photos at once. The first is the cover; tap another to make it the cover.</div>
         <input id="photosMulti" type="file" accept="image/*" multiple hidden>
       </div>
       <div class="field visitedOnly" id="routeWrap"><div class="fieldLabel">Route<span class="optional">optional</span></div><div id="routeField"></div></div>
@@ -709,8 +821,9 @@ button.followStat:active{background:var(--surface-2)}
 
 <!-- ================= DIALOG / TOAST ================= -->
 <div class="dialog" id="dialog" role="alertdialog" aria-modal="true">
-  <div class="dialogCard"><h3 id="dlgTitle"></h3><p id="dlgMsg"></p><div class="dialogBtns"><button class="btn ghost" id="dlgCancel">Cancel</button><button class="btn primary" id="dlgOk">OK</button></div></div>
+  <div class="dialogCard"><h3 id="dlgTitle"></h3><p id="dlgMsg"></p><div class="dlgActions" id="dlgActions" hidden></div><div class="dialogBtns"><button class="btn ghost" id="dlgCancel">Cancel</button><button class="btn primary" id="dlgOk">OK</button></div></div>
 </div>
+<div class="reactPicker" id="reactPicker" role="dialog" aria-label="Choose a reaction"></div>
 <div class="cloudToast" id="cloudToast" role="status" aria-live="polite"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -720,13 +833,13 @@ button.followStat:active{background:var(--surface-2)}
 <script>
 "use strict";
 /* =====================================================================
-   Pinpoint V2.3
+   Pinpoint V2.6
    Supabase is authoritative for whether a place exists. The local outbox
    only stages in-progress uploads (see syncJob / loadCloudPlaces).
    ===================================================================== */
 
 // ---------- Constants & state ----------
-const CATS = [["Beach","🏖️"],["Viewpoint","⛰️"],["Hike","🥾"],["Restaurant","🍴"],["Attraction","🏛️"],["Accommodation","🛏️"],["Other","📍"]].map(([name, emoji]) => ({ name, emoji }));
+const CATS = [["City/Town","🏙️"],["Beach","🏖️"],["Viewpoint","⛰️"],["Hike","🥾"],["Restaurant","🍴"],["Attraction","🏛️"],["Accommodation","🛏️"],["Other","📍"]].map(([name, emoji]) => ({ name, emoji }));
 const MAX_PHOTOS = 5;
 const $ = (id) => document.getElementById(id);
 const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -781,6 +894,21 @@ function uiDialog({ title = "", message = "", ok = "OK", cancel = null, danger =
     setTimeout(() => $("dlgOk").focus({ preventScroll: true }), 30);
   });
 }
+// A list of choices (e.g. report reasons). Resolves with the chosen key, or null if cancelled.
+function uiActions(title, message, items) {
+  return new Promise((resolve) => {
+    let box = $("dlgActions");
+    box.innerHTML = items.map((x, i) => '<button class="btn ' + (x.danger ? "danger" : "secondary") + '" data-i="' + i + '">' + esc(x.label) + "</button>").join("");
+    box.hidden = false; $("dlgOk").hidden = true;
+    $("dlgTitle").textContent = title; $("dlgMsg").textContent = message || ""; $("dlgMsg").hidden = !message;
+    $("dlgCancel").hidden = false; $("dlgCancel").textContent = "Cancel";
+    let d = $("dialog"); d.classList.add("open");
+    const done = (v) => { d.classList.remove("open"); box.hidden = true; box.innerHTML = ""; box.onclick = null; $("dlgOk").hidden = false; $("dlgMsg").hidden = false; $("dlgCancel").onclick = d.onclick = null; resolve(v); };
+    box.onclick = (e) => { let b = e.target.closest("[data-i]"); if (b) done(items[+b.dataset.i].key); };
+    $("dlgCancel").onclick = () => done(null);
+    d.onclick = (e) => { if (e.target === d) done(null); };
+  });
+}
 const uiAlert = (title, message) => uiDialog({ title, message });
 const uiConfirm = (title, message, ok = "OK", danger = false) => uiDialog({ title, message, ok, cancel: "Cancel", danger });
 
@@ -816,7 +944,7 @@ function clearAuthMsg() { $("authMessage").className = "authMessage"; $("authMes
 function setAuthMode(mode) {
   authMode = mode; clearAuthMsg();
   $("signInTab").classList.toggle("on", mode === "signin"); $("signUpTab").classList.toggle("on", mode === "signup");
-  $("signupFields").classList.toggle("show", mode === "signup");
+  $("signupFields").classList.toggle("show", mode === "signup"); $("agreeRow").classList.toggle("show", mode === "signup");
   $("authFirstName").required = mode === "signup"; $("authUsername").required = mode === "signup";
   $("authSubmit").textContent = mode === "signin" ? "Sign in" : "Create account";
   $("authPassword").autocomplete = mode === "signin" ? "current-password" : "new-password";
@@ -832,9 +960,10 @@ function updateAuthUI(user) {
   if (authUser) {
     let uid = authUser.id;
     if (uid !== prevId) { signedPhotoCache.clear(); viewing = null; feedPlaces = []; feedLoadedAt = 0; updateViewUI(); places = []; render(); }
-    setTimeout(async () => { if (authUser?.id !== uid) return; loadMyProfile(); await loadCloudPlaces(uid); resumeJobs(); }, 0);
+    if (uid !== prevId) blockedIds = new Set();
+    setTimeout(async () => { if (authUser?.id !== uid) return; loadMyProfile(); loadBlocks(); await loadCloudPlaces(uid); resumeJobs(); }, 0);
   } else {
-    cloudLoadSeq++; viewing = null; feedPlaces = []; updateViewUI(); myProfile = null; signedPhotoCache.clear();
+    cloudLoadSeq++; viewing = null; feedPlaces = []; blockedIds = new Set(); updateViewUI(); myProfile = null; signedPhotoCache.clear();
     $("connections").innerHTML = ""; $("feed").innerHTML = ""; places = []; render();
   }
 }
@@ -1162,7 +1291,8 @@ const geoCache = new Map();
 function infer(d) {
   let t = ((d.type || "") + " " + (d.category || "") + " " + (d.addresstype || "")).toLowerCase();
   if (t.includes("beach")) return "Beach"; if (/restaurant|cafe|food|pub|bar/.test(t)) return "Restaurant"; if (/hotel|hostel|accommodation|guest_house|camp_site/.test(t)) return "Accommodation";
-  if (/viewpoint|peak/.test(t)) return "Viewpoint"; if (/tourism|attraction|museum|historic|castle/.test(t)) return "Attraction"; return "Other";
+  if (/viewpoint|peak/.test(t)) return "Viewpoint";
+  if (/^(city|town|village|hamlet|suburb|municipality|borough|quarter|neighbourhood)$/.test(String(d.addresstype || d.type || "").toLowerCase())) return "City/Town"; if (/tourism|attraction|museum|historic|castle/.test(t)) return "Attraction"; return "Other";
 }
 async function reverseGeo(lat, lng) {
   let key = lat.toFixed(5) + "," + lng.toFixed(5); if (geoCache.has(key)) return geoCache.get(key);
@@ -1296,6 +1426,7 @@ function emptyHTML(list) {
     if (viewing.loading) return '<div class="empty">Loading places…</div>';
     if (!viewing.profile) return '<div class="empty">This profile could not be loaded.</div>';
     let n = esc(viewing.profile.first_name || viewing.profile.username);
+    if (viewing.blocked) return '<div class="empty"><b>You’ve blocked ' + n + "</b>Unblock them to see their places again.</div>";
     if (!viewing.following) return '<div class="empty"><b>Follow ' + n + " to see their places</b>Their map and countries appear once you follow them.<br><button class=\"btn primary\" data-follow=\"" + viewing.id + '">Follow</button></div>';
     if (!viewing.places.length) return '<div class="empty"><b>No places yet</b>' + n + " hasn’t added any places.</div>";
   } else {
@@ -1346,6 +1477,7 @@ function openPlace(id, opts = {}) {
   currentPhotos = items;
   let canPin = canPinPlace(p);
   $("editPlace").hidden = !mine || !!p.syncing;
+  $("placeMore").hidden = mine || !p.ownerId || !authUser;
   $("galleryTitle").textContent = p.name;
   let tags = ['<span class="tag">' + emo(p.category) + " " + esc(p.category) + "</span>", '<span class="tag' + (visited ? " visited" : "") + '">' + (visited ? "✓ " : "☆ ") + esc(p.status) + "</span>"];
   if (p.countryCode) tags.push('<span class="tag">' + flag(p.countryCode) + " " + esc(p.country || countryName(p.countryCode)) + "</span>");
@@ -1359,11 +1491,14 @@ function openPlace(id, opts = {}) {
     (visited ? '<div class="detailBlock ratingRow"><div class="detailRating">' + starText(p.rating) + "<b>" + p.rating.toFixed(1) + "</b></div>" + (p.route ? routeSVG(p.route, 132, 80, "routeOutline") : "") + "</div>" : "") +
     (visited && p.route ? '<div class="detailBlock"><h4>Route</h4><div style="font-size:20px;font-weight:700">↝ ' + routeDistance(p.route) + "</div>" + (p.route.elevationGain ? '<div class="muted" style="margin-top:2px">' + Math.round(p.route.elevationGain) + " m ascent</div>" : "") + "</div>" : "") +
     (visited && p.notes ? '<div class="detailBlock"><h4>Notes</h4><div class="notes">' + esc(p.notes) + "</div></div>" : "") +
+    saveRowHTML(p) +
+    (p.ownerId || mine ? '<div class="detailReact">' + reactBarHTML(p) + "</div>" : "") +
     (!visited && mine ? '<div class="detailBlock wantBlock">☆ On your wishlist. When you’ve been, tap <b>Edit</b> and mark it as Visited to add a rating, photos and notes.</div>' : "") +
     '<div class="detailActions"><button class="btn secondary block" id="showOnMap">Show on map</button>' + (mine && syncingId !== p.id ? '<button class="btn danger block" id="deletePlace">Delete place</button>' : "") + "</div></div></div>";
   openLayer("galleryPage"); $("galleryPage").scrollTop = 0;
   const fill = () => { for (let img of $("galleryContent").querySelectorAll("img[data-ref]")) { let u = cachedURL(img.dataset.ref); if (u && img.getAttribute("src") !== u) { img.onload = () => img.classList.add("loaded"); img.src = u; if (img.complete) img.classList.add("loaded"); } } };
   fill(); ensureURLs(items.map((x) => x.ref)).then(() => { if (currentPlaceId === id) fill(); });
+  if (!p.syncing && !reactionCache.has(p.id)) loadReactions([p.id]).then(() => refreshReactUI(p.id));
   let track = $("heroTrack");
   if (track && $("heroDots")) track.onscroll = () => { let i = Math.round(track.scrollLeft / (track.firstElementChild.offsetWidth + 8)); [...$("heroDots").children].forEach((d, j) => d.classList.toggle("on", j === i)); };
   if (track && opts.startRow) { let i = items.findIndex((x) => x.row?.id === opts.startRow); if (i > 0) requestAnimationFrame(() => { track.scrollLeft = i * (track.firstElementChild.offsetWidth + 8); }); }
@@ -1650,7 +1785,6 @@ function renderPhotos() {
   if (ph.length < MAX_PHOTOS) html += '<button type="button" class="photoTile add" id="addPhotoTile"><span>+</span>Add photo</button>';
   $("previews").innerHTML = html;
   $("photoCount").textContent = ph.length + " of " + MAX_PHOTOS;
-  $("multiPick").hidden = ph.length >= MAX_PHOTOS - 1;
   $("photoHint").hidden = ph.length >= MAX_PHOTOS && ph.length < 2;
   let missing = ph.filter((x) => x.kind === "existing" && !cachedURL(x.ref)).map((x) => x.ref);
   if (missing.length) ensureURLs(missing).then(() => { if (missing.some((r) => cachedURL(r))) renderPhotos(); });
@@ -1747,6 +1881,7 @@ async function saveNew(name) {
   d.photos.forEach((x) => (x.staged = true));
   places.unshift(optimistic);
   await closeSheet(true); render(); cloudToast("Saving…", 1400); syncJob(id);
+  if (d.savedFrom) refreshSaveUI(d.savedFrom);
 }
 async function saveEdit(name) {
   let d = draft, p = places.find((x) => x.id === d.id);
@@ -1808,9 +1943,22 @@ function applyRoute(route) {
 // =====================================================================
 // Friends, following & activity feed
 // =====================================================================
+// Visited-place counts for people lists (RPC from supabase_v2_6_migration.sql; lists still work without it).
+const placeCountCache = new Map();
+async function loadPlaceCounts(ids) {
+  ids = ids.filter((id) => id && !placeCountCache.has(id));
+  if (!ids.length) return;
+  try {
+    let { data, error } = await sb.rpc("pinpoint_place_counts", { targets: ids });
+    if (error) throw error;
+    for (let r of data || []) placeCountCache.set(r.user_id, Number(r.places || 0));
+  } catch (e) { if (!missingSchema(e)) console.warn("Place counts", e); }
+}
 function personHTML(p, followingIds = new Set()) {
   let mine = p.id === authUser?.id, f = followingIds.has(p.id);
-  return '<div class="person"' + (mine ? "" : ' data-view="' + p.id + '"') + ">" + avatarHTML(p) + '<div style="min-width:0"><div class="personName">' + esc(p.first_name || p.username) + (mine ? " (you)" : "") + '</div><div class="personUser">@' + esc(p.username) + "</div></div>" +
+  let n = mine ? visitedCount(places) : placeCountCache.get(p.id);
+  let count = n == null ? "" : ' · <span class="pc">' + plural(n, "place", "places") + "</span>";
+  return '<div class="person"' + (mine ? "" : ' data-view="' + p.id + '"') + ">" + avatarHTML(p) + '<div style="min-width:0"><div class="personName">' + esc(p.first_name || p.username) + (mine ? " (you)" : "") + '</div><div class="personUser">@' + esc(p.username) + count + "</div></div>" +
     (mine ? "<span></span>" : '<button class="followBtn' + (f ? " following" : "") + '" data-follow="' + p.id + '">' + (f ? "Following" : "Follow") + "</button>") + "</div>";
 }
 let followCache = null;
@@ -1830,7 +1978,9 @@ async function searchPeople() {
   if (error) return;
   let ids = await myFollowingIds();
   $("peopleResults").hidden = false;
-  $("peopleResults").innerHTML = (data || []).length ? data.map((p) => personHTML(p, ids)).join("") : '<div class="listMsg">No people found.</div>';
+  data = (data || []).filter((p) => !blockedIds.has(p.id));
+  await loadPlaceCounts(data.map((p) => p.id));
+  $("peopleResults").innerHTML = data.length ? data.map((p) => personHTML(p, ids)).join("") : '<div class="listMsg">No people found.</div>';
 }
 async function toggleFollow(id, btn) {
   if (!authUser) return;
@@ -1838,7 +1988,7 @@ async function toggleFollow(id, btn) {
   let ids = await myFollowingIds(true);
   let r = ids.has(id) ? await sb.from("follows").delete().eq("follower_id", authUser.id).eq("following_id", id) : await sb.from("follows").insert({ follower_id: authUser.id, following_id: id });
   if (r.error) { if (btn) btn.disabled = false; return uiAlert("Couldn’t update", errText(r.error)); }
-  followCache = null; feedLoadedAt = 0;
+  followCache = null; feedLoadedAt = 0; placeCountCache.delete(id);
   searchPeople(); loadConnections(); loadMyCounts();
   if ($("friendsPage").classList.contains("active")) loadFeed(true);
   if (viewing?.id === id) await viewUser(id, true);
@@ -1852,7 +2002,9 @@ async function loadConnections() {
   if (!ids.length) { el.innerHTML = '<div class="listMsg">' + (connectionMode === "following" ? "You’re not following anyone yet. Search above to find friends." : "No followers yet.") + "</div>"; return; }
   let { data } = await sb.from("profiles").select("id,username,first_name,avatar_url").in("id", ids);
   let following = await myFollowingIds();
-  el.innerHTML = (data || []).map((p) => personHTML(p, following)).join("");
+  data = (data || []).filter((p) => !blockedIds.has(p.id));
+  await loadPlaceCounts(data.map((p) => p.id));
+  el.innerHTML = data.length ? data.map((p) => personHTML(p, following)).join("") : '<div class="listMsg">No one here yet.</div>';
 }
 let feedLoadedAt = 0, feedSeq = 0, feedShown = 8;
 async function loadFeed(force) {
@@ -1861,7 +2013,7 @@ async function loadFeed(force) {
   let seq = ++feedSeq, el = $("feed");
   if (!feedPlaces.length) el.innerHTML = '<div class="listMsg">Loading…</div>';
   try {
-    let ids = [...(await myFollowingIds(true))]; if (seq !== feedSeq) return;
+    let ids = [...(await myFollowingIds(true))].filter((x) => !blockedIds.has(x)); if (seq !== feedSeq) return;
     if (!ids.length) { feedPlaces = []; feedLoadedAt = Date.now(); return renderFeed(); }
     let [{ data: rows, error }, { data: profs }] = await Promise.all([
       queryPlaces((cols) => sb.from("places").select(cols).in("owner_id", ids).eq("sync_state", "ready").order("created_at", { ascending: false }).limit(30)),
@@ -1872,23 +2024,165 @@ async function loadFeed(force) {
     if (pids.length) ph = (await queryPhotos((cols) => sb.from("place_photos").select(cols).in("place_id", pids).order("sort_order", { ascending: true }))).data || [];
     if (seq !== feedSeq) return;
     let pm = new Map((profs || []).map((p) => [p.id, p])), by = photoIndex(ph);
+    for (let r of rows || []) reactionCache.delete(r.id);
     feedPlaces = (rows || []).map((r) => ({ ...rowToPlace(r, by), owner: pm.get(r.owner_id) || null }));
     feedLoadedAt = Date.now(); renderFeed();
   } catch (e) { console.warn("Feed", e); if (seq === feedSeq) el.innerHTML = '<div class="listMsg">Couldn’t load recent activity.</div>'; }
 }
 function feedItemHTML(p) {
-  let o = p.owner || {}, u = cachedURL(p.photos?.[0]);
+  let o = p.owner || {}, visited = p.status === "Visited", refs = visited ? p.photos || [] : [];
   let meta = [emo(p.category) + " " + esc(p.category)]; if (p.countryCode) meta.push(flag(p.countryCode) + " " + esc(p.country || countryName(p.countryCode)));
-  return '<article class="feedItem" data-feed="' + p.id + '"><div class="feedHead" data-view="' + esc(p.ownerId) + '">' + avatarHTML(o) + "<div><b>" + esc(o.first_name || o.username || "Someone") + "</b> <span>" + (p.status === "Visited" ? "visited" : "wants to visit") + " · " + esc(timeAgo(p.created)) + "</span></div></div>" +
-    '<div class="feedBody">' + (u ? '<img class="thumb" src="' + esc(u) + '" alt="">' : '<div class="thumb">' + emo(p.category) + "</div>") + '<div style="min-width:0"><h3>' + esc(p.name) + '</h3><div class="meta">' + meta.join(" · ") + "</div>" + (p.status === "Visited" ? '<div class="stars">' + starText(p.rating) + ' <span class="num">' + p.rating.toFixed(1) + "</span></div>" : "") + "</div></div></article>";
+  if (visited && p.route) meta.push("↝ " + routeDistance(p.route));
+  let media = refs.length
+    ? '<div class="postTrack">' + refs.map((r, i) => '<img data-ref="' + esc(r) + '" alt="Photo ' + (i + 1) + " of " + esc(p.name) + '" decoding="async">').join("") + "</div>" +
+      (refs.length > 1 ? '<div class="postCount">1/' + refs.length + '</div><div class="postDots">' + refs.map((_, i) => "<i" + (i ? "" : ' class="on"') + "></i>").join("") + "</div>" : "")
+    : '<div class="postEmpty">' + emo(p.category) + "</div>";
+  return '<article class="post" data-key="' + p.id + '">' +
+    '<button class="postHead" data-view="' + esc(p.ownerId) + '">' + avatarHTML(o) + "<div><b>" + esc(o.first_name || o.username || "Someone") + "</b><small>" + (o.username ? "@" + esc(o.username) + " · " : "") + (visited ? "visited" : "wants to visit") + " · " + esc(timeAgo(p.created)) + "</small></div></button>" +
+    '<div class="postMedia" data-feed="' + p.id + '">' + media + "</div>" +
+    '<div class="postBar">' + reactBarHTML(p) + saveBtnHTML(p) + "</div>" +
+    '<div class="postBody" data-feed="' + p.id + '"><h3>' + esc(p.name) + '</h3><div class="meta">' + meta.join(" · ") + "</div>" +
+    (visited && p.rating ? '<div class="stars">' + starText(p.rating) + ' <span class="num">' + p.rating.toFixed(1) + "</span></div>" : "") +
+    (visited && p.notes ? '<div class="postNotes">' + esc(p.notes) + "</div>" : "") + "</div></article>";
+}
+function fillImgs(root) {
+  for (let img of root.querySelectorAll("img[data-ref]")) {
+    let u = cachedURL(img.dataset.ref);
+    if (u && img.getAttribute("src") !== u) { img.onload = () => img.classList.add("loaded"); img.src = u; if (img.complete) img.classList.add("loaded"); }
+  }
 }
 function renderFeed() {
   let el = $("feed");
   if (!feedPlaces.length) { el.innerHTML = '<div class="empty"><b>Nothing here yet</b>When people you follow add places, they’ll appear here.</div>'; return; }
   let list = feedPlaces.slice(0, feedShown);
   el.innerHTML = list.map(feedItemHTML).join("") + (feedPlaces.length > feedShown ? '<button class="btn ghost small feedMore" data-act="feedMore">Show more</button>' : "");
-  let missing = list.map((p) => p.photos?.[0]).filter((r) => r && !cachedURL(r));
-  if (missing.length) ensureURLs(missing).then(() => { if (missing.some((r) => cachedURL(r))) renderFeed(); });
+  fillImgs(el);
+  for (let t of el.querySelectorAll(".postTrack")) {
+    let post = t.closest(".post"), dots = post.querySelector(".postDots"), cnt = post.querySelector(".postCount");
+    if (dots) t.onscroll = () => { let i = Math.round(t.scrollLeft / t.clientWidth); [...dots.children].forEach((d, j) => d.classList.toggle("on", j === i)); cnt.textContent = i + 1 + "/" + dots.children.length; };
+  }
+  let missing = list.flatMap((p) => (p.status === "Visited" ? p.photos || [] : [])).filter((r) => r && !cachedURL(r));
+  if (missing.length) ensureURLs(missing).then(() => fillImgs(el));
+  let need = list.map((p) => p.id).filter((id) => !reactionCache.has(id));
+  if (need.length) loadReactions(need).then(() => list.forEach((p) => refreshReactUI(p.id)));
+}
+
+// =====================================================================
+// Emoji reactions (supabase_v2_6_migration.sql)
+// =====================================================================
+const REACTIONS = ["❤️", "🔥", "😍", "👏", "🤩", "😮"];
+const reactionCache = new Map(); // placeId -> [{ user_id, emoji }]
+let reactionsMissing = false;
+const SMILE_SVG = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/></svg>';
+async function loadReactions(ids) {
+  if (!authUser || reactionsMissing || !ids.length) return;
+  try {
+    let { data, error } = await sb.from("place_reactions").select("place_id,user_id,emoji").in("place_id", ids);
+    if (error) throw error;
+    for (let id of ids) reactionCache.set(id, []);
+    for (let r of data || []) if (!blockedIds.has(r.user_id)) reactionCache.get(r.place_id)?.push({ user_id: r.user_id, emoji: r.emoji });
+  } catch (e) { if (missingSchema(e)) reactionsMissing = true; else console.warn("Reactions", e); }
+}
+function reactBarHTML(p) {
+  if (reactionsMissing && !reactionCache.has(p.id)) return '<div class="reactBar" data-rbar="' + p.id + '"></div>';
+  let list = reactionCache.get(p.id) || [], mine = list.find((r) => r.user_id === authUser?.id), own = isMine(p) || p.ownerId === authUser?.id;
+  let counts = new Map(); for (let r of list) counts.set(r.emoji, (counts.get(r.emoji) || 0) + 1);
+  let top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map((x) => x[0]).join("");
+  let sum = list.length ? '<button class="reactSum" data-reactlist="' + p.id + '" aria-label="See reactions">' + top + "<b>" + list.length + "</b></button>" : "";
+  let add = own ? "" : '<button class="reactAdd' + (mine ? " mine" : "") + '" data-react="' + p.id + '" aria-label="' + (mine ? "Change your reaction" : "React") + '">' + (mine ? mine.emoji : SMILE_SVG) + "</button>";
+  return '<div class="reactBar" data-rbar="' + p.id + '">' + add + sum + "</div>";
+}
+function refreshReactUI(id) {
+  let p = findPlace(id); if (!p) return;
+  for (let el of document.querySelectorAll('[data-rbar="' + id + '"]')) el.outerHTML = reactBarHTML(p);
+}
+function closeReactPicker() { let el = $("reactPicker"); el.classList.remove("open"); el.innerHTML = ""; document.removeEventListener("pointerdown", reactOutside, true); }
+function reactOutside(e) { if (!e.target.closest("#reactPicker,[data-react]")) closeReactPicker(); }
+function openReactPicker(id, btn) {
+  if (!authUser) return openAuth("Sign in to react.");
+  if (reactionsMissing) return uiAlert("Reactions aren’t set up yet", "Run supabase_v2_6_migration.sql in Supabase, then try again.");
+  let el = $("reactPicker");
+  if (el.classList.contains("open") && el.dataset.place === id) return closeReactPicker();
+  let mine = (reactionCache.get(id) || []).find((r) => r.user_id === authUser.id);
+  el.dataset.place = id;
+  el.innerHTML = REACTIONS.map((e) => '<button type="button" data-emoji="' + e + '"' + (mine?.emoji === e ? ' class="on"' : "") + ">" + e + "</button>").join("");
+  el.classList.add("open");
+  let r = btn.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + "px";
+  el.style.top = (r.top - h - 8 > 60 ? r.top - h - 8 : r.bottom + 8) + "px";
+  setTimeout(() => document.addEventListener("pointerdown", reactOutside, true), 0);
+}
+async function setReaction(id, emoji) {
+  closeReactPicker();
+  if (!authUser) return;
+  let list = reactionCache.get(id) || [], old = list.find((r) => r.user_id === authUser.id), prev = list.slice();
+  let removing = old?.emoji === emoji;
+  let next = list.filter((r) => r.user_id !== authUser.id); if (!removing) next.push({ user_id: authUser.id, emoji });
+  reactionCache.set(id, next); refreshReactUI(id);
+  let r = removing
+    ? await sb.from("place_reactions").delete().eq("place_id", id).eq("user_id", authUser.id)
+    : await sb.from("place_reactions").upsert({ place_id: id, user_id: authUser.id, emoji }, { onConflict: "place_id,user_id" });
+  if (r.error) {
+    reactionCache.set(id, prev); refreshReactUI(id);
+    if (missingSchema(r.error)) { reactionsMissing = true; return uiAlert("Reactions aren’t set up yet", "Run supabase_v2_6_migration.sql in Supabase, then try again."); }
+    uiAlert("Couldn’t save reaction", errText(r.error));
+  }
+}
+async function showReactionList(id) {
+  let list = reactionCache.get(id) || []; if (!list.length) return;
+  let ids = [...new Set(list.map((r) => r.user_id))];
+  let { data } = await sb.from("profiles").select("id,username,first_name").in("id", ids);
+  let byId = new Map((data || []).map((p) => [p.id, p]));
+  let lines = list.map((r) => { let p = r.user_id === authUser?.id ? { first_name: "You" } : byId.get(r.user_id) || {}; return r.emoji + "  " + (p.first_name || (p.username ? "@" + p.username : "Pinpoint user")); });
+  uiAlert(plural(list.length, "reaction", "reactions"), lines.join("\n"));
+}
+
+// =====================================================================
+// Save someone else's place to my own list
+// =====================================================================
+function myMatch(p) { return places.find((x) => x.id !== p.id && haversine(x, p) < 0.05 && (x.name || "").trim().toLowerCase() === (p.name || "").trim().toLowerCase()) || places.find((x) => x.id !== p.id && haversine(x, p) < 0.015) || null; }
+function saveBtnHTML(p) {
+  if (!authUser || isMine(p) || p.ownerId === authUser.id) return "";
+  let m = myMatch(p);
+  return m ? '<button class="saveBtn saved" data-save="' + p.id + '">' + (m.status === "Visited" ? "✓ Been here" : "☆ Saved") + "</button>"
+           : '<button class="saveBtn" data-save="' + p.id + '" aria-label="Save to your places">＋ Save</button>';
+}
+function refreshSaveUI(id) {
+  let p = findPlace(id); if (!p) return;
+  for (let el of document.querySelectorAll('[data-save="' + id + '"]')) { let t = document.createElement("div"); t.innerHTML = saveBtnHTML(p); if (t.firstElementChild) el.replaceWith(t.firstElementChild); }
+  if (currentPlaceId === id && $("saveRow")) $("saveRow").outerHTML = saveRowHTML(p);
+}
+function saveRowHTML(p) {
+  if (!authUser || isMine(p) || p.ownerId === authUser.id) return "";
+  let m = myMatch(p);
+  if (m) return '<div class="saveRow" id="saveRow"><button class="btn secondary block saved" data-openmine="' + m.id + '">' + (m.status === "Visited" ? "✓ In your places · Visited" : "☆ In your Want to visit list") + "</button></div>";
+  return '<div class="saveRow" id="saveRow"><button class="btn secondary" data-savewant="' + p.id + '">☆ Want to visit</button><button class="btn secondary" data-savebeen="' + p.id + '">✓ I’ve been here</button></div>';
+}
+async function saveChoice(id) {
+  let p = findPlace(id); if (!p) return;
+  let m = myMatch(p); if (m) return openPlace(m.id);
+  let k = await uiActions("Save “" + p.name + "”", "Add it to your own places at the same location.", [{ key: "want", label: "☆ Want to visit" }, { key: "been", label: "✓ I’ve been here" }]);
+  if (k === "want") return saveAsWant(id);
+  if (k === "been") return saveAsBeen(id);
+}
+async function saveAsWant(id) {
+  if (!authUser) return openAuth("Sign in to save places.");
+  let p = findPlace(id); if (!p || myMatch(p)) return;
+  let base = { id: crypto.randomUUID(), name: p.name, category: p.category, status: "Want to visit", rating: 0, notes: "", lat: p.lat, lng: p.lng, route: null, created: new Date().toISOString(), visitedOn: "" };
+  if (p.countryCode) { base.country = p.country; base.countryCode = p.countryCode; }
+  try {
+    let optimistic = await stageJob(base, []);
+    places.unshift(optimistic); render(); syncJob(base.id);
+    cloudToast("Added to your Want to visit list ☆", 2400); refreshSaveUI(id);
+  } catch (e) { uiAlert("Couldn’t save", errText(e)); }
+}
+function saveAsBeen(id) {
+  if (!authUser) return openAuth("Sign in to save places.");
+  let p = findPlace(id); if (!p) return;
+  draft = newDraft({ lat: p.lat, lng: p.lng, category: p.category, status: "Visited", nameTouched: true, typeTouched: true, country: p.country || "", countryCode: p.countryCode || "", locName: [p.name, p.country].filter(Boolean).join(", "), savedFrom: id });
+  $("form").reset(); $("name").value = p.name; $("notes").value = "";
+  openSheet();
+  if (!p.countryCode) refreshDraftLocation(true);
 }
 
 // Viewing someone else's places
@@ -1903,7 +2197,8 @@ async function viewUser(id, keepPage) {
     let [pr, ids, counts] = await Promise.all([sb.from("profiles").select("id,username,first_name,avatar_url").eq("id", id).maybeSingle(), myFollowingIds(true), followCounts(id)]);
     if (seq !== viewSeq || viewing?.id !== id) return;
     viewing.profile = pr.data || null; viewing.following = ids.has(id); viewing.places = []; viewing.counts = counts;
-    if (viewing.following) {
+    viewing.blocked = blockedIds.has(id);
+    if (viewing.following && !viewing.blocked) {
       let [{ data: rows, error }, { data: ph }] = await Promise.all([selectPlaces(id), queryPhotos((cols) => sb.from("place_photos").select(cols).eq("owner_id", id).order("sort_order", { ascending: true }))]);
       if (error) throw error; if (seq !== viewSeq || viewing?.id !== id) return;
       let by = photoIndex(ph);
@@ -1921,17 +2216,21 @@ function updateViewUI() {
   if (!v) { h.innerHTML = ""; h.classList.remove("show"); $("placesTitle").textContent = "Places"; $("search").placeholder = "Search your places"; $("mapSub").textContent = "Move the map to choose a spot"; return; }
   let p = v.profile || {}, name = p.first_name || p.username || "", c = v.counts;
   h.classList.add("show");
-  let pins = v.following ? pinsHTML(v.places, false) : "";
+  let pins = v.following && !v.blocked ? pinsHTML(v.places, false) : "";
+  let more = v.profile ? '<button class="iconBtn heroMore" data-act="userMore" aria-label="More options"><svg class="dotsIcon" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>' : "";
+  let action = !v.profile ? "" : v.blocked
+    ? '<div class="blockedNote">You’ve blocked this account. You won’t see their places and they can’t see yours.</div><button class="followBtn block following" data-act="unblockView">Unblock</button>'
+    : '<button class="followBtn block' + (v.following ? " following" : "") + '" data-follow="' + v.id + '">' + (v.following ? "Following" : "Follow") + "</button>";
   h.innerHTML = '<button class="btn ghost small" data-act="exitView">‹ My places</button>' +
-    '<div class="card profileHero viewHero"><div class="heroRow">' + avatarHTML(p, true) + '<div class="followStats"><div class="followStat"><b>' + (c ? c.followers : "–") + '</b><span>Followers</span></div><div class="followStat"><b>' + (c ? c.following : "–") + "</b><span>Following</span></div></div></div>" +
-    "<h2>" + esc(name || (v.loading ? "Loading…" : "Unknown user")) + '</h2><div class="muted">' + (p.username ? "@" + esc(p.username) : "") + (v.following && !v.loading ? " · " + statsText(v.places) : "") + "</div>" +
-    (v.profile ? '<button class="followBtn block' + (v.following ? " following" : "") + '" data-follow="' + v.id + '">' + (v.following ? "Following" : "Follow") + "</button>" : "") +
-    (v.following && v.places.length ? '<div class="viewActions"><button class="btn secondary small" data-countries="view">🌍 Countries</button><button class="btn secondary small" data-act="viewMap">🗺 Map</button></div>' : "") + "</div>" +
+    '<div class="card profileHero viewHero">' + more + '<div class="heroRow">' + avatarHTML(p, true) + '<div class="followStats"><div class="followStat"><b>' + (c ? c.followers : "–") + '</b><span>Followers</span></div><div class="followStat"><b>' + (c ? c.following : "–") + "</b><span>Following</span></div></div></div>" +
+    "<h2>" + esc(name || (v.loading ? "Loading…" : "Unknown user")) + '</h2><div class="muted">' + (p.username ? "@" + esc(p.username) : "") + (v.following && !v.blocked && !v.loading ? " · " + statsText(v.places) : "") + "</div>" +
+    action +
+    (v.following && !v.blocked && v.places.length ? '<div class="viewActions"><button class="btn secondary small" data-countries="view">🌍 Countries</button><button class="btn secondary small" data-act="viewMap">🗺 Map</button></div>' : "") + "</div>" +
     (pins ? '<h2 class="sectionTitle">Pinned</h2>' + pins : "");
   $("placesTitle").textContent = name ? name + "’s places" : "Places";
   $("search").placeholder = "Search " + (name ? name + "’s" : "their") + " places";
   $("mapSub").innerHTML = "Viewing " + esc(p.username ? "@" + p.username : "profile") + ' · <button class="linkBtn" data-act="exitView">Back to mine</button>';
-  let missing = v.following ? pinnedItems(v.places).map((x) => x.ref).filter((r) => !cachedURL(r)) : [];
+  let missing = v.following && !v.blocked ? pinnedItems(v.places).map((x) => x.ref).filter((r) => !cachedURL(r)) : [];
   if (missing.length) ensureURLs(missing).then(() => { if (viewing === v && missing.some((r) => cachedURL(r))) updateViewUI(); });
 }
 
@@ -2046,6 +2345,138 @@ async function uploadAvatar(file) {
 
 
 
+
+// =====================================================================
+// Safety: blocking, reporting & account deletion
+// Needs supabase_v2_5_migration.sql (blocks & reports tables, RPCs, RLS).
+// =====================================================================
+let blockedIds = new Set();
+const SAFETY_MIGRATION_MSG = "This needs the latest database update. Run supabase_v2_5_migration.sql in Supabase, then try again.";
+function missingSchema(e) { return ["42P01", "42883", "PGRST202", "PGRST205"].includes(e?.code) || /does not exist|could not find the (function|table)/i.test(e?.message || ""); }
+function personName(p) { return p?.first_name || (p?.username ? "@" + p.username : "this person"); }
+async function loadBlocks() {
+  if (!authUser) return blockedIds;
+  let uid = authUser.id;
+  try {
+    let { data, error } = await sb.from("blocks").select("blocked_id").eq("blocker_id", uid);
+    if (error) throw error;
+    if (authUser?.id === uid) blockedIds = new Set((data || []).map((x) => x.blocked_id));
+  } catch (e) { if (!missingSchema(e)) console.warn("Blocks", e); }
+  return blockedIds;
+}
+async function blockUser(id, profile, skipConfirm) {
+  if (!authUser || !id || id === authUser.id) return false;
+  let name = personName(profile);
+  if (!skipConfirm && !(await uiConfirm("Block " + name + "?", "They won’t be able to find you, follow you or see your places, and you won’t see theirs. Any follows between you are removed. They won’t be told.", "Block", true))) return false;
+  let { error } = await sb.rpc("pinpoint_block_user", { target: id });
+  if (error) { uiAlert("Couldn’t block", missingSchema(error) ? SAFETY_MIGRATION_MSG : errText(error)); return false; }
+  blockedIds.add(id); followCache = null; feedLoadedAt = 0;
+  feedPlaces = feedPlaces.filter((p) => p.ownerId !== id);
+  let cur = currentPlaceId && findPlace(currentPlaceId);
+  if (cur && cur.ownerId === id) closeLayer("galleryPage");
+  cloudToast("Blocked " + name);
+  loadMyCounts(); searchPeople(); loadConnections();
+  if ($("friendsPage").classList.contains("active")) renderFeed();
+  if (viewing?.id === id) await viewUser(id, true);
+  if ($("blockedPage").classList.contains("open")) renderBlocked();
+  return true;
+}
+async function unblockUser(id, profile) {
+  if (!authUser) return false;
+  let name = personName(profile);
+  if (!(await uiConfirm("Unblock " + name + "?", "They’ll be able to find and follow you again. You’ll need to follow each other again to see places.", "Unblock"))) return false;
+  let { error } = await sb.from("blocks").delete().eq("blocker_id", authUser.id).eq("blocked_id", id);
+  if (error) { uiAlert("Couldn’t unblock", missingSchema(error) ? SAFETY_MIGRATION_MSG : errText(error)); return false; }
+  blockedIds.delete(id); followCache = null; feedLoadedAt = 0;
+  cloudToast("Unblocked " + name);
+  if (viewing?.id === id) await viewUser(id, true);
+  if ($("blockedPage").classList.contains("open")) renderBlocked();
+  return true;
+}
+const REPORT_REASONS = [["spam", "Spam or misleading"], ["sexual", "Nudity or sexual content"], ["harassment", "Harassment, bullying or hate"], ["violence", "Violence or dangerous activity"], ["privacy", "Shares someone’s private information"], ["other", "Something else"]];
+async function reportContent(userId, profile, placeId) {
+  if (!authUser || !userId) return;
+  let name = personName(profile);
+  let reason = await uiActions(placeId ? "Report this place" : "Report " + name, "Why are you reporting " + (placeId ? "it" : "this account") + "? Reports are anonymous; the person isn’t told who reported them.", REPORT_REASONS.map(([key, label]) => ({ key, label })));
+  if (!reason) return;
+  let { error } = await sb.from("reports").insert({ reporter_id: authUser.id, reported_user_id: userId, place_id: placeId || null, reason });
+  if (error) return uiAlert("Couldn’t send report", missingSchema(error) ? SAFETY_MIGRATION_MSG : errText(error));
+  if (blockedIds.has(userId)) return uiAlert("Thanks for reporting", "We’ll review it and remove anything that breaks the community guidelines.");
+  let block = await uiDialog({ title: "Thanks for reporting", message: "We’ll review it and remove anything that breaks the community guidelines.\n\nDo you also want to block " + name + "?", ok: "Block", cancel: "Not now", danger: true });
+  if (block) blockUser(userId, profile, true);
+}
+async function userMenu(id, profile, placeId) {
+  let blocked = blockedIds.has(id), name = personName(profile);
+  let items = [];
+  if (placeId) items.push({ key: "reportPlace", label: "Report this place" });
+  items.push({ key: "reportUser", label: "Report " + name });
+  items.push(blocked ? { key: "unblock", label: "Unblock " + name } : { key: "block", label: "Block " + name, danger: true });
+  let k = await uiActions(placeId ? "This place" : name, "", items);
+  if (k === "reportPlace") return reportContent(id, profile, placeId);
+  if (k === "reportUser") return reportContent(id, profile, null);
+  if (k === "block") return blockUser(id, profile);
+  if (k === "unblock") return unblockUser(id, profile);
+}
+async function placeOwnerProfile(p) {
+  let o = ownerOf(p); if (o) return o;
+  let { data } = await sb.from("profiles").select("id,username,first_name,avatar_url").eq("id", p.ownerId).maybeSingle();
+  return data || { id: p.ownerId };
+}
+async function renderBlocked() {
+  let el = $("blockedList");
+  if (!el.children.length) el.innerHTML = '<div class="listMsg">Loading…</div>';
+  await loadBlocks();
+  let ids = [...blockedIds];
+  if (!ids.length) { el.innerHTML = '<div class="listMsg">You haven’t blocked anyone.</div>'; return; }
+  let { data } = await sb.from("profiles").select("id,username,first_name,avatar_url").in("id", ids);
+  let byId = new Map((data || []).map((p) => [p.id, p]));
+  el.innerHTML = ids.map((id) => { let p = byId.get(id) || { id, first_name: "Pinpoint user" }; return '<div class="blockedRow">' + avatarHTML(p) + '<div style="min-width:0"><div class="personName">' + esc(p.first_name || p.username) + '</div><div class="personUser">' + (p.username ? "@" + esc(p.username) : "") + '</div></div><button class="followBtn following" data-unblock="' + esc(id) + '">Unblock</button></div>'; }).join("");
+  el._profiles = byId;
+}
+function openBlocked() { $("blockedList").innerHTML = ""; openLayer("blockedPage"); renderBlocked(); }
+
+// Account deletion (App Store guideline 5.1.1(v)): removes storage files first, then all rows and the auth user.
+function openDeleteAccount() { $("deleteConfirm").value = ""; $("deleteGo").disabled = true; $("deleteProgress").hidden = true; openLayer("deletePage"); }
+async function myStoragePaths(uid) {
+  let paths = new Set();
+  let { data } = await sb.from("place_photos").select("storage_path").eq("owner_id", uid);
+  for (let r of data || []) if (r.storage_path) paths.add(r.storage_path);
+  // Also catch any files left over from interrupted uploads.
+  try {
+    let bucket = sb.storage.from("place-photos");
+    let { data: dirs } = await bucket.list(uid, { limit: 1000 });
+    for (let d of dirs || []) {
+      if (d.id) { paths.add(uid + "/" + d.name); continue; }
+      let { data: files } = await bucket.list(uid + "/" + d.name, { limit: 1000 });
+      for (let f of files || []) paths.add(uid + "/" + d.name + "/" + f.name);
+    }
+  } catch (e) { console.warn("Storage list", e); }
+  return [...paths];
+}
+async function deleteAccount() {
+  if (!authUser || $("deleteConfirm").value.trim().toUpperCase() !== "DELETE") return;
+  let uid = authUser.id, prog = $("deleteProgress"), btn = $("deleteGo");
+  const step = (t) => { prog.hidden = false; prog.textContent = t; };
+  btn.disabled = true; $("deleteBack").disabled = true;
+  try {
+    step("Deleting your photos…");
+    let paths = await myStoragePaths(uid);
+    for (let i = 0; i < paths.length; i += 100) { let { error } = await sb.storage.from("place-photos").remove(paths.slice(i, i + 100)); if (error) throw error; }
+    await sb.storage.from("avatars").remove([uid + "/avatar.jpg"]).catch(() => {});
+    step("Deleting your account…");
+    let { error } = await sb.rpc("pinpoint_delete_account");
+    if (error) throw error;
+    for (let j of jobsForUser()) await removeJob(j.id).catch(() => {});
+    try { await sb.auth.signOut({ scope: "local" }); } catch (e) {}
+    closeLayer("deletePage"); updateAuthUI(null); page("map");
+    uiAlert("Account deleted", "Your Pinpoint account and everything in it has been deleted.");
+  } catch (e) {
+    console.error("Delete account", e);
+    uiAlert("Couldn’t delete your account", missingSchema(e) ? SAFETY_MIGRATION_MSG : errText(e) + "\n\nNothing else was changed. Please try again.");
+    btn.disabled = $("deleteConfirm").value.trim().toUpperCase() !== "DELETE";
+  } finally { prog.hidden = true; $("deleteBack").disabled = false; }
+}
+
 // =====================================================================
 // Countries page
 // =====================================================================
@@ -2149,9 +2580,17 @@ function page(w) {
 
 // One delegated click handler for dynamic content (cards, people, feed, actions).
 document.addEventListener("click", async (e) => {
-  let t = e.target.closest("[data-pin],[data-pinopen],[data-follow],[data-view],[data-retry],[data-discard],[data-act],[data-countries],[data-feed],[data-id],[data-f]");
+  if (e.target.closest("#reactPicker [data-emoji]")) { let b = e.target.closest("[data-emoji]"); return setReaction($("reactPicker").dataset.place, b.dataset.emoji); }
+  let t = e.target.closest("[data-react],[data-reactlist],[data-save],[data-savewant],[data-savebeen],[data-openmine],[data-unblock],[data-pin],[data-pinopen],[data-follow],[data-view],[data-retry],[data-discard],[data-act],[data-countries],[data-feed],[data-id],[data-f]");
   if (!t || t.closest("#countriesContent .cRow")) return;
   let d = t.dataset;
+  if (d.react) { e.stopPropagation(); return openReactPicker(d.react, t); }
+  if (d.reactlist) return showReactionList(d.reactlist);
+  if (d.save) return saveChoice(d.save);
+  if (d.savewant) return saveAsWant(d.savewant);
+  if (d.savebeen) return saveAsBeen(d.savebeen);
+  if (d.openmine) return openPlace(d.openmine);
+  if (d.unblock) return unblockUser(d.unblock, $("blockedList")._profiles?.get(d.unblock));
   if (d.pin) { e.stopPropagation(); return togglePin(d.pin); }
   if (d.pinopen) return openPlace(d.pinopen, { pinnedOnly: true });
   if (d.follow) { e.stopPropagation(); return toggleFollow(d.follow, t); }
@@ -2166,6 +2605,8 @@ document.addEventListener("click", async (e) => {
     if (a === "add") return startAdd();
     if (a === "clearFilters") { filter = "All"; $("search").value = ""; $("ratingFilter").value = "0"; return render(); }
     if (a === "exitView") return exitViewing();
+    if (a === "userMore" && viewing) return userMenu(viewing.id, viewing.profile);
+    if (a === "unblockView" && viewing) return unblockUser(viewing.id, viewing.profile);
     if (a === "viewMap") { fitPending = true; return page("map"); }
     if (a === "feedMore") { feedShown += 8; return renderFeed(); }
     if (a === "stat-countries") return openCountries("me");
@@ -2228,14 +2669,13 @@ $("dateToday").onclick = () => { if (!draft) return; draft.visitedOn = todayISO(
 $("rate").addEventListener("click", (e) => { let b = e.target.closest("[data-r]"); if (!b || !draft) return; let n = +b.dataset.r; draft.rating = draft.rating === n ? n - 0.5 : n; draft.dirty = true; renderRate(); });
 $("previews").addEventListener("click", (e) => {
   if (!draft) return;
-  if (e.target.closest("#addPhotoTile")) return $("photos").click();
+  if (e.target.closest("#addPhotoTile")) return $("photosMulti").click();
   let rm = e.target.closest("[data-rmph]");
   if (rm) { let i = +rm.dataset.rmph, [x] = draft.photos.splice(i, 1); if (x?.kind === "existing") draft.removed.push(x.row); if (x?.kind === "new" && x.url) URL.revokeObjectURL(x.url); draft.dirty = true; return renderPhotos(); }
   let t = e.target.closest("[data-ph]");
   if (t && +t.dataset.ph > 0) { let [x] = draft.photos.splice(+t.dataset.ph, 1); draft.photos.unshift(x); draft.dirty = true; renderPhotos(); cloudToast("Cover photo updated"); }
 });
-$("multiPick").onclick = () => $("photosMulti").click();
-$("photos").onchange = $("photosMulti").onchange = (e) => { let fs = [...(e.target.files || [])]; e.target.value = ""; addPhotoFiles(fs); };
+$("photosMulti").onchange = (e) => { let fs = [...(e.target.files || [])]; e.target.value = ""; addPhotoFiles(fs); };
 $("photoGeo").addEventListener("click", (e) => { if (e.target.closest("#dismissGeo")) $("photoGeo").hidden = true; });
 $("routeField").addEventListener("click", (e) => {
   if (e.target.closest("#routeRemove") && draft) { draft.route = null; draft.dirty = true; renderRouteField(); }
@@ -2288,6 +2728,13 @@ $("avatarFile").onchange = (e) => { let f = e.target.files?.[0]; e.target.value 
 $("editProfileBtn").onclick = openProfileSheet;
 $("profileCancel").onclick = $("profileBackdrop").onclick = () => closeLayer("profileSheet");
 $("profileForm").onsubmit = saveProfile;
+$("blockedBtn").onclick = openBlocked;
+$("blockedBack").onclick = () => closeLayer("blockedPage");
+$("deleteAccountBtn").onclick = openDeleteAccount;
+$("deleteBack").onclick = () => closeLayer("deletePage");
+$("deleteConfirm").oninput = () => { $("deleteGo").disabled = $("deleteConfirm").value.trim().toUpperCase() !== "DELETE"; };
+$("deleteGo").onclick = async () => { if (await uiConfirm("Delete your account?", "This is permanent. All your places, photos and connections will be deleted.", "Delete forever", true)) deleteAccount(); };
+$("placeMore").onclick = async () => { let p = findPlace(currentPlaceId); if (!p?.ownerId) return; userMenu(p.ownerId, await placeOwnerProfile(p), p.id); };
 $("profileSignOut").onclick = async () => {
   if (!(await uiConfirm("Sign out?", "Your places stay safe in your account.", "Sign out"))) return;
   await sb.auth.signOut(); updateAuthUI(null); page("map");
@@ -2306,6 +2753,7 @@ $("authForm").onsubmit = async (e) => {
       let first_name = $("authFirstName").value.trim(), username = $("authUsername").value.trim().toLowerCase().replace(/^@/, "");
       if (!first_name) throw new Error("Enter your first name.");
       if (!/^[a-z0-9_]{3,24}$/.test(username)) throw new Error("Username must be 3–24 characters using letters, numbers or _.");
+      if (!$("authAgree").checked) throw new Error("Please agree to the Terms and Privacy policy to create an account.");
       let chk = await sb.from("profiles").select("id").eq("username", username).maybeSingle();
       if (chk.data) throw new Error("That username is already taken.");
       let { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: "https://olliesarge2002-rgb.github.io/pinpoint/", data: { first_name, username } } });
