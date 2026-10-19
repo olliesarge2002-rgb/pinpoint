@@ -833,7 +833,7 @@ button.followStat:active{background:var(--surface-2)}
 <script>
 "use strict";
 /* =====================================================================
-   Pinpoint V2.6
+   Pinpoint V2.7
    Supabase is authoritative for whether a place exists. The local outbox
    only stages in-progress uploads (see syncJob / loadCloudPlaces).
    ===================================================================== */
@@ -1021,6 +1021,46 @@ async function photoDelete(id) { let db = await dbp; return new Promise((res, re
 
 // ---------- Photo URLs: signed URLs fetched in batches and cached until shortly before expiry ----------
 const signedPhotoCache = new Map();   // storage path -> { url, exp }
+const thumbOf = new Map();            // full storage path -> thumbnail storage path
+// Small views (cards, grids, edit sheet) use the ~480px thumbnail when one exists.
+function thumbRef(ref) { if (!ref || !String(ref).startsWith("cloud:")) return ref; let t = thumbOf.get(String(ref).slice(6)); return t ? "cloud:" + t : ref; }
+function thumbURL(ref) { return cachedURL(thumbRef(ref)); }
+function ensureThumbs(refs) { return ensureURLs(refs.filter(Boolean).map(thumbRef)); }
+const THUMB_MAX = 480;
+function thumbPathFor(path) { return path.replace(/\.[a-z0-9]+$/i, "") + "_t.jpg"; }
+// Upload a thumbnail for a photo that's just been uploaded. Never blocks or fails the save.
+async function uploadThumb(photoId, path, blob) {
+  if (missingPhotoCols.has("thumb_path")) return null;
+  try {
+    let small = await compress(blob, THUMB_MAX, 0.78), tp = thumbPathFor(path);
+    let up = await withTimeout(sb.storage.from("place-photos").upload(tp, small, { contentType: "image/jpeg", upsert: true }), 20000, "Uploading thumbnail");
+    if (up.error) throw up.error;
+    let r = await sb.from("place_photos").update({ thumb_path: tp }).eq("id", photoId).eq("owner_id", authUser.id).select("id");
+    if (r.error) { if (/thumb_path/.test(r.error.message || "")) missingPhotoCols.add("thumb_path"); sb.storage.from("place-photos").remove([tp]).catch(() => {}); throw r.error; }
+    if (!r.data?.length) { sb.storage.from("place-photos").remove([tp]).catch(() => {}); return null; }
+    thumbOf.set(path, tp); return tp;
+  } catch (e) { console.warn("Thumbnail", e); return null; }
+}
+// Create thumbnails for older photos (owner only, a few per session, one at a time).
+let thumbBackfillRunning = false;
+async function backfillThumbs() {
+  if (thumbBackfillRunning || !authUser || missingPhotoCols.has("thumb_path")) return;
+  let todo = places.filter((p) => !p.syncing && (!p.ownerId || p.ownerId === authUser.id)).flatMap((p) => p.photoRows || []).filter((r) => !r.thumb && !thumbOf.has(r.path)).slice(0, 8);
+  if (!todo.length) return;
+  thumbBackfillRunning = true;
+  try {
+    for (let r of todo) {
+      if (!authUser || missingPhotoCols.has("thumb_path")) break;
+      let ref = "cloud:" + r.path; await ensureURLs([ref]); let u = cachedURL(ref); if (!u) continue;
+      let res = await fetch(u); if (!res.ok) continue;
+      let tp = await uploadThumb(r.id, r.path, await res.blob());
+      if (tp) r.thumb = tp;
+      await sleep(400);
+    }
+    if (todo.some((r) => r.thumb)) scheduleRender();
+  } catch (e) { console.warn("Thumbnail backfill", e); }
+  finally { thumbBackfillRunning = false; }
+}
 const localURLCache = new Map();      // local id -> object URL
 function cachedURL(ref) {
   if (!ref) return ""; ref = String(ref);
@@ -1108,13 +1148,15 @@ async function updatePlaceRow(id, patch) {
   return r;
 }
 async function selectPlaces(ownerId) { return queryPlaces((cols) => sb.from("places").select(cols).eq("owner_id", ownerId).eq("sync_state", "ready").order("created_at", { ascending: false })); }
-function photoIndex(rows) { let by = {}; for (let x of rows || []) (by[x.place_id] || (by[x.place_id] = [])).push({ id: x.id, path: x.storage_path, sort: x.sort_order, pinnedAt: x.pinned_at || null }); return by; }
+function photoIndex(rows) { let by = {}; for (let x of rows || []) { if (x.thumb_path) thumbOf.set(x.storage_path, x.thumb_path); (by[x.place_id] || (by[x.place_id] = [])).push({ id: x.id, path: x.storage_path, thumb: x.thumb_path || null, sort: x.sort_order, pinnedAt: x.pinned_at || null }); } return by; }
 // place_photos.pinned_at is added by the v2.4 migration; fall back gracefully if it isn't there yet.
 const missingPhotoCols = new Set();
-function photoCols() { return "id,place_id,storage_path,sort_order" + (missingPhotoCols.has("pinned_at") ? "" : ",pinned_at"); }
+function photoCols() { return "id,place_id,storage_path,sort_order" + (missingPhotoCols.has("pinned_at") ? "" : ",pinned_at") + (missingPhotoCols.has("thumb_path") ? "" : ",thumb_path"); }
 async function queryPhotos(build) {
   let r = await build(photoCols());
-  if (r.error && !missingPhotoCols.has("pinned_at") && /pinned_at/.test(r.error.message || "")) { missingPhotoCols.add("pinned_at"); console.warn("Pinpoint: pinned_at missing, run supabase_v2_4_migration.sql"); r = await build(photoCols()); }
+  for (let col of ["thumb_path", "pinned_at"]) {
+    if (r.error && !missingPhotoCols.has(col) && new RegExp(col).test(r.error.message || "")) { missingPhotoCols.add(col); console.warn("Pinpoint: " + col + " column missing, run the latest supabase migration"); r = await build(photoCols()); }
+  }
   return r;
 }
 function rowToPlace(r, by) {
@@ -1145,6 +1187,7 @@ async function uploadOne(job, ph, index) {
   let up = await withTimeout(sb.storage.from("place-photos").upload(path, blob, { contentType: ph.type || blob.type || "image/jpeg", upsert: true }), 30000, "Uploading photo " + (index + 1));
   if (up.error) throw new Error("Photo " + (index + 1) + ": " + errText(up.error));
   await withTimeout(registerPhoto(job.id, ph, path), 12000, "Registering photo " + (index + 1));
+  await uploadThumb(ph.photoId, path, blob);
   return path;
 }
 async function verifyCloudPlace(ownerId, placeId) {
@@ -1218,13 +1261,15 @@ async function resumeJobs() { if (!authUser || syncRunning) return; let j = jobs
 
 async function deletePlaceV2(p) {
   if (!authUser) throw new Error("Sign in required.");
-  let ownerId = authUser.id, placeId = p.id;
+  let ownerId = authUser.id, placeId = p.id, thumbs = (p.photoRows || []).map((r) => r.thumb || thumbOf.get(r.path)).filter(Boolean);
   if (syncingId === placeId) { cloudToast("Still saving this place · try again in a moment", 3000); throw new Error("Place is still saving."); }
   pendingDeletes.add(placeId);
   places = places.filter((x) => x.id !== placeId); await render(); cloudToast("Deleting…", 10000);
   try {
     let { data, error } = await withTimeout(sb.rpc("pinpoint_delete_place_v2", { p_id: placeId }), 12000, "Deleting place").catch((e) => ({ data: null, error: e }));
     let paths = Array.isArray(data) ? data : [];
+    for (let x of paths) { let t = thumbOf.get(x); if (t) thumbs.push(t); }
+    paths = [...new Set([...paths, ...thumbs])];
     let gone = false; // verify the row is really gone before clearing local state
     for (let i = 0; i < 6; i++) {
       let chk = await sb.from("places").select("id").eq("id", placeId).eq("owner_id", ownerId).maybeSingle();
@@ -1254,6 +1299,7 @@ async function uploadAdditionalPhotos(place, items) {
         let up = await withTimeout(sb.storage.from("place-photos").upload(path, x.blob, { contentType: "image/jpeg", upsert: true }), 30000, "Uploading photo " + (i + 1));
         if (up.error) throw up.error;
         await withTimeout(registerPhoto(place.id, ph, path), 12000, "Registering photo " + (i + 1));
+        await uploadThumb(ph.photoId, path, x.blob);
         refs.push({ sort: ph.sort, ref: "cloud:" + path });
       } catch (e) { errors.push("Photo " + (i + 1) + ": " + errText(e)); }
     }
@@ -1281,6 +1327,7 @@ async function loadCloudPlaces(ownerId = authUser?.id) {
   let pending = jobsForUser().filter((j) => !readyIds.has(j.id) && !pendingDeletes.has(j.id)).map(jobPlace);
   places = [...pending, ...ready];
   await render();
+  setTimeout(backfillThumbs, 4000);
   if ($("countriesPage").classList.contains("open") && countriesSource === "me") renderCountries();
   setTimeout(backfillCountries, 1500);
   return true;
@@ -1391,7 +1438,7 @@ function renderMarkers(list) {
 }
 
 function placeCardHTML(p, ro) {
-  let u = cachedURL(p.photos?.[0]);
+  let u = thumbURL(p.photos?.[0]);
   let thumb = u ? '<img class="thumb" src="' + esc(u) + '" alt="" decoding="async">' : '<div class="thumb">' + emo(p.category) + "</div>";
   let meta = [emo(p.category) + " " + esc(p.category), esc(p.status)];
   if (p.countryCode) meta.push(flag(p.countryCode) + " " + esc(p.country || countryName(p.countryCode)));
@@ -1456,8 +1503,8 @@ function renderNow() {
   if (shown.length) patchList(box, shown.map((p) => ({ key: p.id, html: placeCardHTML(p, ro) })));
   else { let h = emptyHTML(list); if (box._empty !== h || box._html && Object.keys(box._html).length) { box.innerHTML = h; box._html = {}; box._empty = h; } }
   if (shown.length) box._empty = null;
-  let missing = shown.map((p) => p.photos?.[0]).filter((r) => r && !cachedURL(r));
-  if (missing.length) ensureURLs(missing).then(() => { if (missing.some((r) => cachedURL(r))) scheduleRender(); });
+  let missing = shown.map((p) => p.photos?.[0]).filter((r) => r && !thumbURL(r));
+  if (missing.length) ensureThumbs(missing).then(() => { if (missing.some((r) => thumbURL(r))) scheduleRender(); });
 }
 
 // =====================================================================
@@ -1484,7 +1531,7 @@ function openPlace(id, opts = {}) {
   if (visited && p.visitedOn) tags.push('<span class="tag">📅 ' + esc(fmtDate(p.visitedOn)) + "</span>");
   let owner = !mine ? ownerOf(p) : null;
   let hero = items.length
-    ? '<div class="hero"><div class="heroTrack" id="heroTrack">' + items.map((x, i) => '<div class="heroItem" data-full="' + i + '"><img data-ref="' + esc(x.ref) + '" alt="Photo ' + (i + 1) + " of " + esc(p.name) + '">' + (canPin && x.row ? pinBtnHTML(x.row) : "") + "</div>").join("") + "</div>" + (items.length > 1 ? '<div class="heroDots" id="heroDots">' + items.map((_, i) => "<i" + (i ? "" : ' class="on"') + "></i>").join("") + "</div>" : "") + "</div>"
+    ? '<div class="hero"><div class="heroTrack" id="heroTrack">' + items.map((x, i) => '<div class="heroItem" data-full="' + i + '"><img data-ref="' + esc(x.ref) + '" alt="Photo ' + (i + 1) + " of " + esc(p.name) + '"' + (i ? ' loading="lazy"' : "") + ">" + (canPin && x.row ? pinBtnHTML(x.row) : "") + "</div>").join("") + "</div>" + (items.length > 1 ? '<div class="heroDots" id="heroDots">' + items.map((_, i) => "<i" + (i ? "" : ' class="on"') + "></i>").join("") + "</div>" : "") + "</div>"
     : '<div class="heroEmpty">' + emo(p.category) + "</div>";
   $("galleryContent").innerHTML = hero + '<div class="screenBody"><div class="detail">' + (opts.pinnedOnly ? '<div class="pinnedNote">📌 Pinned ' + (items.length === 1 ? "photo" : "photos") + "</div>" : "") + "<h1>" + esc(p.name) + '</h1><div class="tags">' + tags.join("") + "</div>" +
     (owner ? '<button class="byline" data-view="' + esc(p.ownerId) + '">' + avatarHTML(owner) + "<span>Added by <b>" + esc(owner.first_name || owner.username) + "</b></span></button>" : "") +
@@ -1779,15 +1826,15 @@ function renderPhotos() {
   if (!draft) return;
   let ph = draft.photos, html = ph.map((x, i) => {
     if (x.busy) return '<div class="photoTile busy"></div>';
-    let src = x.kind === "new" ? x.url : cachedURL(x.ref);
+    let src = x.kind === "new" ? x.url : thumbURL(x.ref);
     return '<div class="photoTile" data-ph="' + i + '" role="button" tabindex="0" aria-label="' + (i ? "Photo " + (i + 1) + ", tap to make cover" : "Cover photo") + '">' + (src ? '<img src="' + esc(src) + '" alt="">' : "") + (i === 0 ? '<span class="cover">Cover</span>' : "") + '<button type="button" class="rm" data-rmph="' + i + '" aria-label="Remove photo">×</button></div>';
   }).join("");
   if (ph.length < MAX_PHOTOS) html += '<button type="button" class="photoTile add" id="addPhotoTile"><span>+</span>Add photo</button>';
   $("previews").innerHTML = html;
   $("photoCount").textContent = ph.length + " of " + MAX_PHOTOS;
   $("photoHint").hidden = ph.length >= MAX_PHOTOS && ph.length < 2;
-  let missing = ph.filter((x) => x.kind === "existing" && !cachedURL(x.ref)).map((x) => x.ref);
-  if (missing.length) ensureURLs(missing).then(() => { if (missing.some((r) => cachedURL(r))) renderPhotos(); });
+  let missing = ph.filter((x) => x.kind === "existing" && !thumbURL(x.ref)).map((x) => x.ref);
+  if (missing.length) ensureThumbs(missing).then(() => { if (missing.some((r) => thumbURL(r))) renderPhotos(); });
 }
 function renderRouteField() {
   let el = $("routeField"), r = draft?.route;
@@ -1796,16 +1843,16 @@ function renderRouteField() {
 }
 
 // Photos: compress, read EXIF GPS/date
-async function compress(file, max = 2048) {
+async function compress(file, max = 1600, startQuality = 0.82) {
   let src = URL.createObjectURL(file), img = new Image();
   await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error("This file isn’t a supported image.")); img.src = src; });
   URL.revokeObjectURL(src);
   let scale = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement("canvas");
   c.width = Math.max(1, Math.round(img.width * scale)); c.height = Math.max(1, Math.round(img.height * scale));
   c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-  let quality = 0.84, blob = await new Promise((r) => c.toBlob(r, "image/jpeg", quality));
+  let quality = startQuality, blob = await new Promise((r) => c.toBlob(r, "image/jpeg", quality));
   if (!blob) throw new Error("Image conversion failed");
-  while (blob.size > 1.6 * 1024 * 1024 && quality > 0.58) { quality -= 0.07; blob = await new Promise((r) => c.toBlob(r, "image/jpeg", quality)); }
+  while (blob.size > (max <= THUMB_MAX ? 80 : 900) * 1024 && quality > 0.58) { quality -= 0.07; blob = await new Promise((r) => c.toBlob(r, "image/jpeg", quality)); }
   return blob;
 }
 async function readExif(file) {
@@ -1901,7 +1948,7 @@ async function saveEdit(name) {
     let res = await sb.from("place_photos").delete().eq("id", r.id).eq("owner_id", authUser.id).select("id");
     if (res.error) throw res.error; if (!res.data?.length) throw new Error(MIGRATION_MSG);
   }
-  if (d.removed.length) { try { await withTimeout(sb.storage.from("place-photos").remove(d.removed.map((r) => r.path)), 15000, "Removing photos"); } catch (e) { console.warn("Photo file cleanup", e); } }
+  if (d.removed.length) { try { await withTimeout(sb.storage.from("place-photos").remove(d.removed.flatMap((r) => [r.path, r.thumb || thumbOf.get(r.path)].filter(Boolean))), 15000, "Removing photos"); } catch (e) { console.warn("Photo file cleanup", e); } }
   d.photos.forEach((x, i) => (x.sort = i));
   let changed = d.photos.filter((x) => x.kind === "existing" && x.row.sort !== x.sort);
   for (let pass of [1000, 0]) for (let x of changed) {
@@ -2034,7 +2081,7 @@ function feedItemHTML(p) {
   let meta = [emo(p.category) + " " + esc(p.category)]; if (p.countryCode) meta.push(flag(p.countryCode) + " " + esc(p.country || countryName(p.countryCode)));
   if (visited && p.route) meta.push("↝ " + routeDistance(p.route));
   let media = refs.length
-    ? '<div class="postTrack">' + refs.map((r, i) => '<img data-ref="' + esc(r) + '" alt="Photo ' + (i + 1) + " of " + esc(p.name) + '" decoding="async">').join("") + "</div>" +
+    ? '<div class="postTrack">' + refs.map((r, i) => '<img data-ref="' + esc(r) + '" alt="Photo ' + (i + 1) + " of " + esc(p.name) + '" decoding="async" loading="lazy">').join("") + "</div>" +
       (refs.length > 1 ? '<div class="postCount">1/' + refs.length + '</div><div class="postDots">' + refs.map((_, i) => "<i" + (i ? "" : ' class="on"') + "></i>").join("") + "</div>" : "")
     : '<div class="postEmpty">' + emo(p.category) + "</div>";
   return '<article class="post" data-key="' + p.id + '">' +
@@ -2230,8 +2277,8 @@ function updateViewUI() {
   $("placesTitle").textContent = name ? name + "’s places" : "Places";
   $("search").placeholder = "Search " + (name ? name + "’s" : "their") + " places";
   $("mapSub").innerHTML = "Viewing " + esc(p.username ? "@" + p.username : "profile") + ' · <button class="linkBtn" data-act="exitView">Back to mine</button>';
-  let missing = v.following && !v.blocked ? pinnedItems(v.places).map((x) => x.ref).filter((r) => !cachedURL(r)) : [];
-  if (missing.length) ensureURLs(missing).then(() => { if (viewing === v && missing.some((r) => cachedURL(r))) updateViewUI(); });
+  let missing = v.following && !v.blocked ? pinnedItems(v.places).map((x) => x.ref).filter((r) => !thumbURL(r)) : [];
+  if (missing.length) ensureThumbs(missing).then(() => { if (viewing === v && missing.some((r) => thumbURL(r))) updateViewUI(); });
 }
 
 // =====================================================================
@@ -2297,13 +2344,13 @@ const STACK_SVG = '<svg viewBox="0 0 24 24"><rect x="8" y="3" width="13" height=
 function pinsHTML(list, mine) {
   let groups = pinnedGroups(list);
   if (!groups.length) return mine ? '<div class="empty pinEmpty"><b>No pinned photos yet</b>Open one of your places and tap the 📌 on a photo to show it here.</div>' : "";
-  return '<div class="pinGrid">' + groups.map((g) => { let u = cachedURL(g.ref), n = g.rows.length; return '<button class="pinTile" data-pinopen="' + g.p.id + '" aria-label="' + esc(g.p.name) + (n > 1 ? ", " + n + " photos" : "") + '">' + (u ? '<img src="' + esc(u) + '" alt="" decoding="async">' : "") + (n > 1 ? '<span class="pinStack">' + STACK_SVG + "</span>" : "") + "</button>"; }).join("") + "</div>";
+  return '<div class="pinGrid">' + groups.map((g) => { let u = thumbURL(g.ref), n = g.rows.length; return '<button class="pinTile" data-pinopen="' + g.p.id + '" aria-label="' + esc(g.p.name) + (n > 1 ? ", " + n + " photos" : "") + '">' + (u ? '<img src="' + esc(u) + '" alt="" decoding="async">' : "") + (n > 1 ? '<span class="pinStack">' + STACK_SVG + "</span>" : "") + "</button>"; }).join("") + "</div>";
 }
 function renderPins() {
   let el = $("myPins"); if (!authUser || !el) return;
   let h = pinsHTML(places, true); if (el._h !== h) { el.innerHTML = h; el._h = h; }
-  let missing = pinnedItems(places).map((x) => x.ref).filter((r) => !cachedURL(r));
-  if (missing.length) ensureURLs(missing).then(() => { if (missing.some((r) => cachedURL(r))) renderPins(); });
+  let missing = pinnedItems(places).map((x) => x.ref).filter((r) => !thumbURL(r));
+  if (missing.length) ensureThumbs(missing).then(() => { if (missing.some((r) => thumbURL(r))) renderPins(); });
 }
 function openProfileSheet() {
   $("pfFirst").value = myProfile?.first_name || ""; $("pfUser").value = myProfile?.username || "";
@@ -2468,6 +2515,7 @@ async function deleteAccount() {
     if (error) throw error;
     for (let j of jobsForUser()) await removeJob(j.id).catch(() => {});
     try { await sb.auth.signOut({ scope: "local" }); } catch (e) {}
+    clearPhotoCache();
     closeLayer("deletePage"); updateAuthUI(null); page("map");
     uiAlert("Account deleted", "Your Pinpoint account and everything in it has been deleted.");
   } catch (e) {
@@ -2737,7 +2785,7 @@ $("deleteGo").onclick = async () => { if (await uiConfirm("Delete your account?"
 $("placeMore").onclick = async () => { let p = findPlace(currentPlaceId); if (!p?.ownerId) return; userMenu(p.ownerId, await placeOwnerProfile(p), p.id); };
 $("profileSignOut").onclick = async () => {
   if (!(await uiConfirm("Sign out?", "Your places stay safe in your account.", "Sign out"))) return;
-  await sb.auth.signOut(); updateAuthUI(null); page("map");
+  await sb.auth.signOut(); clearPhotoCache(); updateAuthUI(null); page("map");
 };
 
 // Auth
@@ -2779,7 +2827,8 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).catch(() => {});
   navigator.serviceWorker.addEventListener("controllerchange", () => { if (authUser) loadCloudPlaces(authUser.id); });
 }
-if ("caches" in window) caches.keys().then((ks) => Promise.all(ks.map((k) => caches.open(k).then((c) => c.keys().then((rs) => Promise.all(rs.filter((r) => /supabase\.(co|in)\//.test(r.url)).map((r) => c.delete(r)))))))).catch(() => {});
+function clearPhotoCache() { try { if ("caches" in window) caches.keys().then((ks) => ks.filter((k) => k.startsWith("pinpoint-photos")).forEach((k) => caches.delete(k))); } catch (e) {} }
+if ("caches" in window) caches.keys().then((ks) => Promise.all(ks.filter((k) => !k.startsWith("pinpoint-photos")).map((k) => caches.open(k).then((c) => c.keys().then((rs) => Promise.all(rs.filter((r) => /supabase\.(co|in)\//.test(r.url)).map((r) => c.delete(r)))))))).catch(() => {});
 </script>
 </body>
 </html>
