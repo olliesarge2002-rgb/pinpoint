@@ -1,4 +1,4 @@
-const CACHE="pinpoint-v44-egress";
+const CACHE="pinpoint-v45-steps";
 const PHOTOS="pinpoint-photos-v1",PHOTO_MAX=600;
 const CORE=["./","./index.html","./manifest.webmanifest","./pinpoint-wordmark.png","./icon-192.png","./icon-512.png","./apple-touch-icon.png","./world-110m.json","./privacy.html","./terms.html"];
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE).catch(()=>{})))});

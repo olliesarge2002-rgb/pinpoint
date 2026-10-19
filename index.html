@@ -267,6 +267,45 @@ body.picking .crosshair i{background:var(--accent);border-color:var(--accent)}
 .saveRow .btn.saved{background:var(--accent-soft);color:var(--accent)}
 .detailReact{margin-top:14px}
 .personUser .pc{color:var(--ink-2);font-weight:650}
+/* Step-by-step add sheet */
+.stepper{display:flex;align-items:center;gap:8px;padding:10px 16px 8px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.stepTab{border:0;background:none;display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--muted);padding:4px 2px;white-space:nowrap}
+.stepTab i{font-style:normal;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);color:var(--muted);font-size:13px;font-weight:800}
+.stepTab.on{color:var(--ink)}
+.stepTab.on i{background:var(--accent);color:var(--accent-ink)}
+.stepTab.done i{background:var(--accent-soft);color:var(--accent)}
+.stepLine{flex:1;height:2px;background:var(--line);border-radius:2px}
+.stepIntro{font-size:14px;color:var(--muted);line-height:1.4;margin:10px 2px 12px}
+.stepSummary{display:flex;align-items:center;gap:12px;margin:12px 0 4px;padding:10px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.stepSummary .sumThumb{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--surface-2);display:grid;place-items:center;font-size:24px;flex:0 0 auto}
+.stepSummary b{display:block;font-size:16px;line-height:1.25}
+.stepSummary small{display:block;color:var(--muted);font-size:13px}
+.stepSummary .linkBtn{margin-left:auto;font-size:14px}
+.stepFoot{display:flex;gap:10px}
+.stepFoot .btn{flex:1}
+.stepFoot #stepBack{flex:0 0 auto;padding-left:18px;padding-right:18px}
+.peopleChips{display:flex;flex-wrap:wrap;gap:8px}
+.pChip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px 4px 4px;font-size:14px;font-weight:650;color:var(--ink)}
+.pChip .avatar{width:26px;height:26px;font-size:11px}
+.pChip button{border:0;background:none;color:var(--muted);font-size:16px;padding:0 0 0 2px;line-height:1}
+.pAdd{border:1px dashed var(--line);background:none;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:700;color:var(--accent)}
+.pickRow{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:11px 14px;width:100%;border:0;background:none;text-align:left}
+.pickRow+.pickRow{border-top:1px solid var(--line)}
+.pickTick{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:14px;color:transparent}
+.pickRow.on .pickTick{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.withLine{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:var(--ink-2);flex-wrap:wrap}
+.withLine .avatar{width:24px;height:24px;font-size:10px}
+.withLine button{border:0;background:none;padding:0;font:inherit;font-weight:750;color:var(--ink)}
+.postWith{font-size:13px;color:var(--muted);margin-top:4px}
+.postWith b{color:var(--ink-2)}
+/* Auth extras */
+.forgotLink{display:block;margin:14px auto 0;font-size:14px}
+.authSent{text-align:center;padding:8px 0 4px}
+.authSentIcon{font-size:40px}
+.authSent h2{margin:6px 0 6px;font-size:20px}
+.authSent p{color:var(--ink-2);font-size:15px;line-height:1.45;margin:0 0 16px}
+.authSent .btn{margin-top:8px}
+#authForm.resetMode #authPasswordField,#authForm.resetMode .signupOnly{display:none}
 
 /* ---------- Profile ---------- */
 .profileHero{padding:18px 16px 16px}
@@ -632,6 +671,7 @@ button.followStat:active{background:var(--surface-2)}
     </div>
     <div class="card list accountCard">
       <div class="listRow"><span class="muted" style="font-size:15px">Email</span><span id="myEmail"></span></div>
+      <button class="listRow navish" id="changePwBtn"><span>Change password</span><span class="chev">›</span></button>
       <button class="listRow danger" id="profileSignOut">Sign out</button>
     </div>
     <button class="deleteAccountLink" id="deleteAccountBtn">Delete account</button>
@@ -707,6 +747,20 @@ button.followStat:active{background:var(--surface-2)}
   </div>
 </div>
 
+<!-- ================= NEW PASSWORD ================= -->
+<div class="sheet" id="passwordSheet">
+  <div class="sheetBackdrop" id="passwordBackdrop"></div>
+  <div class="panel">
+    <div class="panelHead"><button type="button" class="textBtn" id="passwordCancel">Cancel</button><h2>New password</h2><span></span></div>
+    <form id="passwordForm" class="panelBody" novalidate>
+      <p class="muted" style="font-size:14px;margin:8px 0 4px" id="passwordIntro">Choose a new password for your account.</p>
+      <div class="field" id="newPwField"><label for="newPw">New password</label><input id="newPw" type="password" autocomplete="new-password" minlength="6" placeholder="At least 6 characters"><div class="fieldErr" id="newPwErr">Use at least 6 characters.</div></div>
+      <div class="field" id="newPw2Field"><label for="newPw2">Confirm password</label><input id="newPw2" type="password" autocomplete="new-password" placeholder="Type it again"><div class="fieldErr">The passwords don’t match.</div></div>
+    </form>
+    <div class="panelFoot"><button class="btn primary block" type="submit" form="passwordForm" id="passwordSave">Save new password</button></div>
+  </div>
+</div>
+
 <!-- ================= AUTH ================= -->
 <div class="screen" id="authPage" aria-label="Sign in">
   <div class="screenTop">
@@ -725,11 +779,19 @@ button.followStat:active{background:var(--surface-2)}
           <div class="field"><label for="authUsername">Username</label><input id="authUsername" autocapitalize="none" autocomplete="username" maxlength="24" placeholder="olliesarge"><div class="hint">3–24 characters · letters, numbers and _</div></div>
         </div>
         <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com"></div>
-        <div class="field"><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"></div>
+        <div class="field" id="authPasswordField"><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters"></div>
         <label class="signupOnly agreeRow" id="agreeRow"><input type="checkbox" id="authAgree"><span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms &amp; community guidelines</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a>. There’s no tolerance for objectionable content or abusive users.</span></label>
         <button class="btn primary block" id="authSubmit" type="submit">Sign in</button>
+        <button class="linkBtn forgotLink" type="button" id="forgotBtn">Forgot your password?</button>
       </form>
       <div class="authMessage" id="authMessage"></div>
+      <div class="authSent" id="authSent" hidden>
+        <div class="authSentIcon">✉️</div>
+        <h2 id="authSentTitle">Check your email</h2>
+        <p id="authSentMsg"></p>
+        <button class="btn secondary block" type="button" id="authResend">Resend email</button>
+        <button class="btn ghost block" type="button" id="authSentBack">Back to sign in</button>
+      </div>
     </div>
   </div>
 </div>
@@ -750,43 +812,74 @@ button.followStat:active{background:var(--surface-2)}
       <h2 id="sheetTitle">New place</h2>
       <button type="submit" form="form" class="textBtn strong" id="saveTop">Save</button>
     </div>
+    <div class="stepper" id="stepper" role="tablist" aria-label="Steps">
+      <button type="button" class="stepTab on" data-step="1" role="tab"><i>1</i>Place &amp; photos</button>
+      <span class="stepLine"></span>
+      <button type="button" class="stepTab" data-step="2" role="tab"><i>2</i>Details</button>
+    </div>
     <form id="form" class="panelBody" novalidate>
-      <div class="locCard">
-        <div class="locIcon">📍</div>
-        <div class="locText"><b id="locName">Selected location</b><small id="coords"></small></div>
+      <div class="step" id="step1">
+        <div class="stepIntro">Where was it? Move the pin, use your location, or add a photo with location turned on and we’ll place it for you.</div>
+        <div class="locCard">
+          <div class="locIcon">📍</div>
+          <div class="locText"><b id="locName">Selected location</b><small id="coords"></small></div>
+        </div>
+        <div class="locActions">
+          <button type="button" class="btn ghost small" id="locAdjust">Adjust on map</button>
+          <button type="button" class="btn ghost small" id="locMine">Use my location</button>
+        </div>
+        <div class="photoGeo" id="photoGeo" hidden></div>
+        <div class="field" id="nameField">
+          <label for="name">Place name</label>
+          <input id="name" type="text" maxlength="100" placeholder="e.g. Catbells summit" autocomplete="off">
+          <div class="fieldErr">Give this place a name.</div>
+        </div>
+        <div class="field" id="photosField">
+          <div class="fieldLabel">Photos<span class="optional" id="photoCount">0 of 5</span></div>
+          <div class="photoGrid" id="previews"></div>
+          <div class="hint" id="photoHint">Choose up to 5 at once. The first is the cover; tap another to make it the cover.</div>
+          <input id="photosMulti" type="file" accept="image/*" multiple hidden>
+        </div>
+        <div class="field" id="routeWrap"><div class="fieldLabel">Route<span class="optional">optional</span></div><div id="routeField"></div></div>
       </div>
-      <div class="locActions">
-        <button type="button" class="btn ghost small" id="locAdjust">Adjust on map</button>
-        <button type="button" class="btn ghost small" id="locMine">Use my location</button>
+      <div class="step" id="step2" hidden>
+        <div class="stepSummary" id="stepSummary"></div>
+        <div class="field"><div class="fieldLabel">Have you been?</div>
+          <div class="seg" id="statusSeg" role="radiogroup" aria-label="Status"><button type="button" data-status="Visited">✓ I’ve been</button><button type="button" data-status="Want to visit">☆ Want to go</button></div>
+          <div class="hint" id="wantHint" hidden>Want-to-go places keep just the name, location and type. Photos, route, rating and notes are added once you’ve been.</div>
+        </div>
+        <div class="field"><div class="fieldLabel">Type</div><div class="typeGrid" id="typeGrid" role="radiogroup" aria-label="Type"></div></div>
+        <div class="field visitedOnly" id="dateField">
+          <label for="visitedOn">Date visited<span class="optional">optional</span></label>
+          <div class="dateRow"><input id="visitedOn" type="date"><button type="button" class="btn ghost small" id="dateToday">Today</button></div>
+          <div class="hint" id="dateHint" hidden></div>
+        </div>
+        <div class="field visitedOnly" id="peopleField">
+          <div class="fieldLabel">Who were you with?<span class="optional">optional</span></div>
+          <div class="peopleChips" id="peopleChips"></div>
+        </div>
+        <div class="field visitedOnly" id="ratingField"><div class="fieldLabel">Rating<span class="ratingValue" id="ratingText">5.0</span></div><div class="rate" id="rate"></div><div class="hint">Tap a star again for a half star.</div></div>
+        <div class="field visitedOnly" id="notesField"><label for="notes">Notes<span class="optional">optional</span></label><textarea id="notes" maxlength="1000" placeholder="What made this place worth remembering?"></textarea></div>
       </div>
-      <div class="photoGeo" id="photoGeo" hidden></div>
-
-      <div class="field" id="nameField">
-        <label for="name">Name</label>
-        <input id="name" type="text" maxlength="100" placeholder="e.g. Catbells summit" autocomplete="off">
-        <div class="fieldErr">Give this place a name.</div>
-      </div>
-      <div class="field"><div class="fieldLabel">Type</div><div class="typeGrid" id="typeGrid" role="radiogroup" aria-label="Type"></div></div>
-      <div class="field"><div class="fieldLabel">Status</div>
-        <div class="seg" id="statusSeg" role="radiogroup" aria-label="Status"><button type="button" data-status="Visited">✓ Visited</button><button type="button" data-status="Want to visit">☆ Want to visit</button></div>
-        <div class="hint" id="wantHint" hidden>Rating, date, photos, route and notes are added once you’ve been. Change the status to Visited when you go.</div>
-      </div>
-      <div class="field visitedOnly" id="dateField">
-        <label for="visitedOn">Date visited<span class="optional">optional</span></label>
-        <div class="dateRow"><input id="visitedOn" type="date"><button type="button" class="btn ghost small" id="dateToday">Today</button></div>
-        <div class="hint" id="dateHint" hidden></div>
-      </div>
-      <div class="field visitedOnly" id="ratingField"><div class="fieldLabel">Rating<span class="ratingValue" id="ratingText">5.0</span></div><div class="rate" id="rate"></div><div class="hint">Tap a star again for a half star.</div></div>
-      <div class="field visitedOnly" id="photosField">
-        <div class="fieldLabel">Photos<span class="optional" id="photoCount">0 of 5</span></div>
-        <div class="photoGrid" id="previews"></div>
-        <div class="hint" id="photoHint">Choose up to 5 photos at once. The first is the cover; tap another to make it the cover.</div>
-        <input id="photosMulti" type="file" accept="image/*" multiple hidden>
-      </div>
-      <div class="field visitedOnly" id="routeWrap"><div class="fieldLabel">Route<span class="optional">optional</span></div><div id="routeField"></div></div>
-      <div class="field visitedOnly" id="notesField"><label for="notes">Notes<span class="optional">optional</span></label><textarea id="notes" maxlength="1000" placeholder="What made this place worth remembering?"></textarea></div>
     </form>
-    <div class="panelFoot"><button class="btn primary block" type="submit" form="form" id="saveBtn">Save place</button></div>
+    <div class="panelFoot stepFoot">
+      <button class="btn secondary" type="button" id="stepBack" hidden>‹ Back</button>
+      <button class="btn primary" type="button" id="stepNext">Next: details ›</button>
+      <button class="btn primary" type="submit" form="form" id="saveBtn" hidden>Save place</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= PEOPLE PICKER ================= -->
+<div class="sheet" id="peopleSheet">
+  <div class="sheetBackdrop" id="peopleBackdrop"></div>
+  <div class="panel">
+    <div class="panelHead"><button type="button" class="textBtn" id="peopleCancel">Cancel</button><h2>Who were you with?</h2><button type="button" class="textBtn strong" id="peopleDone">Done</button></div>
+    <div class="panelBody">
+      <div class="searchBox peopleSearchBox"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="peoplePick" autocapitalize="none" type="search" placeholder="Search your followers" autocomplete="off"></div>
+      <div class="hint" style="margin:8px 2px 10px">You can add people who follow you. They’ll be shown on this place.</div>
+      <div class="card list" id="peopleList"></div>
+    </div>
   </div>
 </div>
 
@@ -833,7 +926,7 @@ button.followStat:active{background:var(--surface-2)}
 <script>
 "use strict";
 /* =====================================================================
-   Pinpoint V2.7
+   Pinpoint V2.8
    Supabase is authoritative for whether a place exists. The local outbox
    only stages in-progress uploads (see syncJob / loadCloudPlaces).
    ===================================================================== */
@@ -936,18 +1029,39 @@ document.addEventListener("gesturestart", (e) => e.preventDefault());
 // ---------- Supabase & auth ----------
 const SUPABASE_URL = "https://fqfyzvggzppljxqumpnp.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_yNh-1hPn5gRH9jcPO2kIZw_VJUhectp";
+// Where email links (verification, password reset) should send people back to.
+const APP_URL = location.protocol === "https:" && !/app\.test$/.test(location.hostname) ? location.origin + location.pathname.replace(/index\.html$/, "") : "https://olliesarge2002-rgb.github.io/pinpoint/";
+// Captured before Supabase tidies the URL, in case the recovery event fires before the app listens for it.
+let recoveryPending = /type=recovery/.test(location.hash + location.search);
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 let authMode = "signin", authUser = null, myProfile = null, connectionMode = "following";
 
 function authMsg(message, type = "ok") { let el = $("authMessage"); el.textContent = message; el.className = "authMessage show " + type; }
 function clearAuthMsg() { $("authMessage").className = "authMessage"; $("authMessage").textContent = ""; }
+const AUTH_LABEL = { signin: "Sign in", signup: "Create account", reset: "Send reset link" };
 function setAuthMode(mode) {
-  authMode = mode; clearAuthMsg();
+  authMode = mode; clearAuthMsg(); showAuthSent(null);
   $("signInTab").classList.toggle("on", mode === "signin"); $("signUpTab").classList.toggle("on", mode === "signup");
   $("signupFields").classList.toggle("show", mode === "signup"); $("agreeRow").classList.toggle("show", mode === "signup");
-  $("authFirstName").required = mode === "signup"; $("authUsername").required = mode === "signup";
-  $("authSubmit").textContent = mode === "signin" ? "Sign in" : "Create account";
+  $("authForm").classList.toggle("resetMode", mode === "reset");
+  $("authFirstName").required = mode === "signup"; $("authUsername").required = mode === "signup"; $("authPassword").required = mode !== "reset";
+  $("authSubmit").textContent = AUTH_LABEL[mode];
   $("authPassword").autocomplete = mode === "signin" ? "current-password" : "new-password";
+  $("forgotBtn").hidden = mode === "signup";
+  $("forgotBtn").textContent = mode === "reset" ? "Back to sign in" : "Forgot your password?";
+}
+// "Check your email" panel after sign-up / reset request; stops the form being submitted twice.
+let authSentState = null;
+function showAuthSent(kind, email) {
+  authSentState = kind ? { kind, email } : null;
+  $("authSent").hidden = !kind; $("authForm").hidden = !!kind; $("authMessage").hidden = !!kind;
+  document.querySelector(".authTabs").hidden = !!kind;
+  if (!kind) return;
+  let e = "<b>" + esc(email) + "</b>";
+  let t = { signup: ["Check your email", "We’ve sent a link to " + e + ". Tap it to confirm your account, then come back here and sign in."],
+            unconfirmed: ["Confirm your email first", "Your account isn’t confirmed yet. Tap the link we sent to " + e + ", then sign in. Can’t find it? Check your junk folder or send it again."],
+            reset: ["Check your email", "If there’s an account for " + e + ", we’ve sent a link to reset your password. Open it on this device to choose a new one."] }[kind];
+  $("authSentTitle").textContent = t[0]; $("authSentMsg").innerHTML = t[1];
 }
 function openAuth(msg) { setAuthMode("signin"); if (msg) authMsg(msg, "err"); openLayer("authPage"); }
 
@@ -1246,6 +1360,7 @@ async function syncJob(id) {
     }
     if (job.visitedOn && hasCol("visited_on")) extra.visited_on = job.visitedOn;
     if (Object.keys(extra).length) await withTimeout(updatePlaceRow(id, extra), 8000, "Saving details").catch((e) => console.warn("Extra fields save failed", e));
+    if (job.people?.length) await withTimeout(setPlacePeople(id, job.people, []), 8000, "Saving people").catch((e) => console.warn("People save failed", e));
     let lp = places.find((x) => x.id === id);
     if (lp) Object.assign(lp, { syncing: false, syncState: "ready", storage: "cloud", syncError: "", country: job.country || "", countryCode: job.countryCode || "", photos: job.photos.map((ph) => "cloud:" + ph.storagePath) });
     let cleanup = removeJob(id);
@@ -1535,6 +1650,7 @@ function openPlace(id, opts = {}) {
     : '<div class="heroEmpty">' + emo(p.category) + "</div>";
   $("galleryContent").innerHTML = hero + '<div class="screenBody"><div class="detail">' + (opts.pinnedOnly ? '<div class="pinnedNote">📌 Pinned ' + (items.length === 1 ? "photo" : "photos") + "</div>" : "") + "<h1>" + esc(p.name) + '</h1><div class="tags">' + tags.join("") + "</div>" +
     (owner ? '<button class="byline" data-view="' + esc(p.ownerId) + '">' + avatarHTML(owner) + "<span>Added by <b>" + esc(owner.first_name || owner.username) + "</b></span></button>" : "") +
+    '<div data-with="' + esc(p.id) + '">' + withLineHTML(p) + "</div>" +
     (visited ? '<div class="detailBlock ratingRow"><div class="detailRating">' + starText(p.rating) + "<b>" + p.rating.toFixed(1) + "</b></div>" + (p.route ? routeSVG(p.route, 132, 80, "routeOutline") : "") + "</div>" : "") +
     (visited && p.route ? '<div class="detailBlock"><h4>Route</h4><div style="font-size:20px;font-weight:700">↝ ' + routeDistance(p.route) + "</div>" + (p.route.elevationGain ? '<div class="muted" style="margin-top:2px">' + Math.round(p.route.elevationGain) + " m ascent</div>" : "") + "</div>" : "") +
     (visited && p.notes ? '<div class="detailBlock"><h4>Notes</h4><div class="notes">' + esc(p.notes) + "</div></div>" : "") +
@@ -1546,6 +1662,7 @@ function openPlace(id, opts = {}) {
   const fill = () => { for (let img of $("galleryContent").querySelectorAll("img[data-ref]")) { let u = cachedURL(img.dataset.ref); if (u && img.getAttribute("src") !== u) { img.onload = () => img.classList.add("loaded"); img.src = u; if (img.complete) img.classList.add("loaded"); } } };
   fill(); ensureURLs(items.map((x) => x.ref)).then(() => { if (currentPlaceId === id) fill(); });
   if (!p.syncing && !reactionCache.has(p.id)) loadReactions([p.id]).then(() => refreshReactUI(p.id));
+  if (!p.syncing) loadPlacePeople([p.id]).then(() => refreshWithUI(p.id));
   let track = $("heroTrack");
   if (track && $("heroDots")) track.onscroll = () => { let i = Math.round(track.scrollLeft / (track.firstElementChild.offsetWidth + 8)); [...$("heroDots").children].forEach((d, j) => d.classList.toggle("on", j === i)); };
   if (track && opts.startRow) { let i = items.findIndex((x) => x.row?.id === opts.startRow); if (i > 0) requestAnimationFrame(() => { track.scrollLeft = i * (track.firstElementChild.offsetWidth + 8); }); }
@@ -1757,7 +1874,7 @@ function goToHit(i) {
 // Add / edit sheet
 // =====================================================================
 const MIGRATION_MSG = "Managing existing photos needs the latest database update. Run supabase_v2_4_migration.sql in Supabase, then try again.";
-function newDraft(extra) { return { mode: "new", id: null, lat: 0, lng: 0, category: "Other", status: "Visited", rating: 5, visitedOn: "", photos: [], removed: [], route: null, nameTouched: false, typeTouched: false, dirty: false, country: "", countryCode: "", locName: "", geoSeq: 0, photoGeo: null, geoTipShown: false, ...extra }; }
+function newDraft(extra) { return { step: 1, people: [], peopleOrig: [], mode: "new", id: null, lat: 0, lng: 0, category: "Other", status: "Visited", rating: 5, visitedOn: "", photos: [], removed: [], route: null, nameTouched: false, typeTouched: false, dirty: false, country: "", countryCode: "", locName: "", geoSeq: 0, photoGeo: null, geoTipShown: false, ...extra }; }
 function startAdd() {
   if (!authUser) return openAuth("Sign in to add a place.");
   if (viewing) exitViewing();
@@ -1773,14 +1890,17 @@ function startEdit(p) {
   draft = newDraft({ mode: "edit", id: p.id, lat: p.lat, lng: p.lng, category: p.category, status: p.status, rating: p.status === "Visited" && p.rating ? p.rating : 5, visitedOn: p.visitedOn || "", route: p.route || null, nameTouched: true, typeTouched: true, country: p.country, countryCode: p.countryCode, locName: p.country ? p.country : "Saved location",
     photos: (p.photoRows || []).map((r) => ({ kind: "existing", row: r, ref: "cloud:" + r.path })) });
   $("form").reset(); $("name").value = p.name; $("notes").value = p.notes || "";
+  draft.people = [...(placePeopleCache.get(p.id) || [])]; draft.peopleOrig = [...draft.people];
   openSheet();
   refreshDraftLocation(true);
+  if (!placePeopleCache.has(p.id)) { let d = draft; loadPlacePeople([p.id]).then(() => { if (draft !== d) return; d.people = [...(placePeopleCache.get(p.id) || [])]; d.peopleOrig = [...d.people]; renderPeopleChips(); }); }
 }
 function openSheet() {
   $("sheetTitle").textContent = draft.mode === "edit" ? "Edit place" : "New place";
   $("saveBtn").textContent = draft.mode === "edit" ? "Save changes" : "Save place";
   $("nameField").classList.remove("invalid"); $("photoGeo").hidden = true; $("dateHint").hidden = true;
-  renderLoc(); renderTypes(); renderStatus(); renderRate(); renderPhotos(); renderRouteField();
+  renderLoc(); renderTypes(); renderStatus(); renderRate(); renderPhotos(); renderRouteField(); renderPeopleChips();
+  setStep(1);
   $("visitedOn").value = draft.visitedOn || ""; $("visitedOn").max = todayISO();
   openLayer("sheet"); $("form").scrollTop = 0;
 }
@@ -1924,6 +2044,7 @@ async function saveNew(name) {
   // Want-to-visit places only keep name, location and type.
   let base = { id, name, category: d.category, status: d.status, rating: v ? d.rating : 0, notes: v ? $("notes").value.trim() : "", lat: d.lat, lng: d.lng, route: v ? d.route : null, created: new Date().toISOString(), visitedOn: v ? d.visitedOn || "" : "" };
   if (d.countryCode) { base.country = d.country; base.countryCode = d.countryCode; }
+  if (v && d.people.length) base.people = [...d.people];
   let optimistic = await stageJob(base, v ? d.photos.map((x) => ({ blob: x.blob })) : []);
   d.photos.forEach((x) => (x.staged = true));
   places.unshift(optimistic);
@@ -1956,6 +2077,7 @@ async function saveEdit(name) {
     if (res.error) throw res.error; if (!res.data?.length) throw new Error(MIGRATION_MSG);
   }
   await uploadAdditionalPhotos(p, d.photos.filter((x) => x.kind === "new").map((x) => ({ blob: x.blob, sort: x.sort })));
+  await setPlacePeople(p.id, v ? d.people : [], d.peopleOrig).catch((e) => cloudToast(missingSchema(e) ? "Adding people needs supabase_v2_8_migration.sql" : "Couldn’t update who was there · " + errText(e), 3500));
   await closeSheet(true);
   await loadCloudPlaces(authUser.id);
   cloudToast("Changes saved ✓");
@@ -2071,7 +2193,7 @@ async function loadFeed(force) {
     if (pids.length) ph = (await queryPhotos((cols) => sb.from("place_photos").select(cols).in("place_id", pids).order("sort_order", { ascending: true }))).data || [];
     if (seq !== feedSeq) return;
     let pm = new Map((profs || []).map((p) => [p.id, p])), by = photoIndex(ph);
-    for (let r of rows || []) reactionCache.delete(r.id);
+    for (let r of rows || []) { reactionCache.delete(r.id); placePeopleCache.delete(r.id); }
     feedPlaces = (rows || []).map((r) => ({ ...rowToPlace(r, by), owner: pm.get(r.owner_id) || null }));
     feedLoadedAt = Date.now(); renderFeed();
   } catch (e) { console.warn("Feed", e); if (seq === feedSeq) el.innerHTML = '<div class="listMsg">Couldn’t load recent activity.</div>'; }
@@ -2089,6 +2211,7 @@ function feedItemHTML(p) {
     '<div class="postMedia" data-feed="' + p.id + '">' + media + "</div>" +
     '<div class="postBar">' + reactBarHTML(p) + saveBtnHTML(p) + "</div>" +
     '<div class="postBody" data-feed="' + p.id + '"><h3>' + esc(p.name) + '</h3><div class="meta">' + meta.join(" · ") + "</div>" +
+    '<div class="postWith" data-with="' + p.id + '">' + postWithHTML(p) + "</div>" +
     (visited && p.rating ? '<div class="stars">' + starText(p.rating) + ' <span class="num">' + p.rating.toFixed(1) + "</span></div>" : "") +
     (visited && p.notes ? '<div class="postNotes">' + esc(p.notes) + "</div>" : "") + "</div></article>";
 }
@@ -2110,6 +2233,8 @@ function renderFeed() {
   }
   let missing = list.flatMap((p) => (p.status === "Visited" ? p.photos || [] : [])).filter((r) => r && !cachedURL(r));
   if (missing.length) ensureURLs(missing).then(() => fillImgs(el));
+  let needP = list.map((p) => p.id).filter((id) => !placePeopleCache.has(id));
+  if (needP.length) loadPlacePeople(needP).then(() => list.forEach((p) => refreshWithUI(p.id)));
   let need = list.map((p) => p.id).filter((id) => !reactionCache.has(id));
   if (need.length) loadReactions(need).then(() => list.forEach((p) => refreshReactUI(p.id)));
 }
@@ -2302,6 +2427,13 @@ async function loadMyProfile() {
   loadMyCounts();
   let { data, error } = await sb.from("profiles").select("id,username,first_name,avatar_url").eq("id", authUser.id).maybeSingle();
   if (error) { console.error(error); return; }
+  // Accounts created before a profile row existed: make it from the name and username given at sign-up.
+  let m = authUser.user_metadata || {};
+  if (!data && m.username && /^[a-z0-9_]{3,24}$/.test(String(m.username).toLowerCase())) {
+    let row = { id: authUser.id, first_name: String(m.first_name || "").slice(0, 50), username: String(m.username).toLowerCase() };
+    let ins = await sb.from("profiles").insert(row);
+    if (!ins.error) data = { ...row, avatar_url: null };
+  }
   myProfile = data; renderProfile();
 }
 function renderAccountBtn() {
@@ -2629,9 +2761,10 @@ function page(w) {
 // One delegated click handler for dynamic content (cards, people, feed, actions).
 document.addEventListener("click", async (e) => {
   if (e.target.closest("#reactPicker [data-emoji]")) { let b = e.target.closest("[data-emoji]"); return setReaction($("reactPicker").dataset.place, b.dataset.emoji); }
-  let t = e.target.closest("[data-react],[data-reactlist],[data-save],[data-savewant],[data-savebeen],[data-openmine],[data-unblock],[data-pin],[data-pinopen],[data-follow],[data-view],[data-retry],[data-discard],[data-act],[data-countries],[data-feed],[data-id],[data-f]");
+  let t = e.target.closest("[data-untag],[data-react],[data-reactlist],[data-save],[data-savewant],[data-savebeen],[data-openmine],[data-unblock],[data-pin],[data-pinopen],[data-follow],[data-view],[data-retry],[data-discard],[data-act],[data-countries],[data-feed],[data-id],[data-f]");
   if (!t || t.closest("#countriesContent .cRow")) return;
   let d = t.dataset;
+  if (d.untag) { e.stopPropagation(); return untagMe(d.untag); }
   if (d.react) { e.stopPropagation(); return openReactPicker(d.react, t); }
   if (d.reactlist) return showReactionList(d.reactlist);
   if (d.save) return saveChoice(d.save);
@@ -2744,9 +2877,10 @@ $("locMine").onclick = async () => {
 };
 $("form").onsubmit = async (e) => {
   e.preventDefault(); if (!draft) return;
+  if (draft.mode === "new" && draft.step === 1) return goStep(2);
   if (!authUser) return openAuth("Sign in before saving a place.");
   let name = $("name").value.trim();
-  if (!name) { $("nameField").classList.add("invalid"); $("name").focus(); $("nameField").scrollIntoView({ block: "center", behavior: "smooth" }); return; }
+  if (!name) { setStep(1); $("nameField").classList.add("invalid"); $("name").focus(); $("nameField").scrollIntoView({ block: "center", behavior: "smooth" }); return; }
   if (draft.photos.some((x) => x.busy)) return cloudToast("Still preparing your photos…");
   if (draft.photos.length > MAX_PHOTOS) return uiAlert("Too many photos", "A place can have up to " + MAX_PHOTOS + " photos.");
   setSaving(true);
@@ -2765,6 +2899,113 @@ $("gpxFile").onchange = async (e) => {
   try { let txt = await f.text(); if (!/\.gpx$/i.test(f.name) && !/<gpx[\s>]/i.test(txt)) throw new Error("Not GPX"); applyRoute(readGPX(txt)); }
   catch (err) { uiAlert("Couldn’t read that file", "Choose a .gpx route file exported from your app or watch."); }
 };
+
+// Steps
+function setStep(n) {
+  if (!draft) return; draft.step = n;
+  $("step1").hidden = n !== 1; $("step2").hidden = n !== 2;
+  for (let t of $("stepper").querySelectorAll(".stepTab")) { let k = +t.dataset.step; t.classList.toggle("on", k === n); t.classList.toggle("done", k < n); t.setAttribute("aria-selected", k === n); }
+  let edit = draft.mode === "edit";
+  $("stepBack").hidden = n === 1; $("stepNext").hidden = n === 2; $("saveBtn").hidden = n === 1 && !edit;
+  $("saveTop").style.visibility = edit || n === 2 ? "visible" : "hidden";
+  $("stepNext").textContent = "Next: details ›";
+  if (n === 2) renderSummary();
+  $("form").scrollTop = 0;
+}
+function goStep(n) {
+  if (!draft) return;
+  if (n === 2 && !$("name").value.trim()) { $("nameField").classList.add("invalid"); $("name").focus(); return; }
+  if (n === 2 && document.activeElement?.blur) document.activeElement.blur();
+  setStep(n);
+}
+function renderSummary() {
+  let d = draft, ph = d.photos[0], src = ph ? (ph.kind === "new" ? ph.url : thumbURL(ph.ref)) : "";
+  let extras = []; if (d.photos.length) extras.push(plural(d.photos.length, "photo", "photos")); if (d.route) extras.push("↝ " + routeDistance(d.route));
+  $("stepSummary").innerHTML = (src ? '<img class="sumThumb" src="' + esc(src) + '" alt="">' : '<div class="sumThumb">' + emo(d.category) + "</div>") +
+    '<div style="min-width:0"><b>' + esc($("name").value.trim()) + "</b><small>" + esc([d.locName && d.locName !== "Finding this place…" ? d.locName : "", ...extras].filter(Boolean).join(" · ")) + '</small></div><button type="button" class="linkBtn" data-step="1">Edit</button>';
+}
+$("stepNext").onclick = () => goStep(2);
+$("stepBack").onclick = () => setStep(1);
+$("stepper").addEventListener("click", (e) => { let t = e.target.closest("[data-step]"); if (t) goStep(+t.dataset.step); });
+$("stepSummary").addEventListener("click", (e) => { if (e.target.closest("[data-step]")) setStep(1); });
+$("name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); if (draft?.mode === "new") goStep(2); } });
+
+// People on this trip
+const placePeopleCache = new Map(); // placeId -> [userId]
+const profileCache = new Map();      // userId -> profile
+async function cacheProfiles(ids) {
+  let need = [...new Set(ids)].filter((id) => id && !profileCache.has(id)); if (!need.length) return;
+  let { data } = await sb.from("profiles").select("id,username,first_name,avatar_url").in("id", need);
+  for (let p of data || []) profileCache.set(p.id, p);
+}
+let peopleMissing = false;
+async function loadPlacePeople(ids) {
+  if (!authUser || peopleMissing || !ids.length) return;
+  try {
+    let { data, error } = await sb.from("place_people").select("place_id,user_id").in("place_id", ids);
+    if (error) throw error;
+    for (let id of ids) placePeopleCache.set(id, []);
+    for (let r of data || []) if (!blockedIds.has(r.user_id)) placePeopleCache.get(r.place_id)?.push(r.user_id);
+    await cacheProfiles((data || []).map((r) => r.user_id));
+  } catch (e) { if (missingSchema(e)) peopleMissing = true; else console.warn("Place people", e); }
+}
+async function setPlacePeople(placeId, now, before) {
+  let add = now.filter((x) => !before.includes(x)), rm = before.filter((x) => !now.includes(x));
+  if (rm.length) { let r = await sb.from("place_people").delete().eq("place_id", placeId).in("user_id", rm); if (r.error) throw r.error; }
+  if (add.length) { let r = await sb.from("place_people").insert(add.map((user_id) => ({ place_id: placeId, user_id, added_by: authUser.id }))); if (r.error) throw r.error; }
+  placePeopleCache.set(placeId, [...now]);
+}
+function personName2(id) { if (id === authUser?.id) return "you"; let p = profileCache.get(id); return p ? p.first_name || "@" + p.username : "someone"; }
+function namesList(ids) { let n = ids.map(personName2); if (n.length <= 1) return n.join(""); if (n.length === 2) return n.join(" and "); return n.slice(0, -1).join(", ") + " and " + n.at(-1); }
+function withLineHTML(p) {
+  let ids = placePeopleCache.get(p.id) || []; if (!ids.length) return "";
+  let me = ids.includes(authUser?.id) && !isMine(p);
+  return '<div class="withLine">' + ids.slice(0, 4).map((id) => avatarHTML(id === authUser?.id ? myProfile || {} : profileCache.get(id) || {})).join("") + "<span>With " +
+    ids.map((id, i) => (i ? (i === ids.length - 1 ? " and " : ", ") : "") + (id === authUser?.id ? "<b>you</b>" : '<button data-view="' + esc(id) + '">' + esc(personName2(id)) + "</button>")).join("") + "</span>" +
+    (me ? '<button class="linkBtn" data-untag="' + esc(p.id) + '" style="margin-left:auto">Remove me</button>' : "") + "</div>";
+}
+function refreshWithUI(id) {
+  let p = findPlace(id); if (!p) return;
+  for (let el of document.querySelectorAll('[data-with="' + id + '"]')) el.innerHTML = el.classList.contains("postWith") ? postWithHTML(p) : withLineHTML(p);
+}
+function postWithHTML(p) { let ids = placePeopleCache.get(p.id) || []; return ids.length ? "with <b>" + esc(namesList(ids)) + "</b>" : ""; }
+async function untagMe(placeId) {
+  if (!(await uiConfirm("Remove yourself?", "You won’t be shown as having been here on this place.", "Remove"))) return;
+  let r = await sb.from("place_people").delete().eq("place_id", placeId).eq("user_id", authUser.id);
+  if (r.error) return uiAlert("Couldn’t remove you", errText(r.error));
+  placePeopleCache.set(placeId, (placePeopleCache.get(placeId) || []).filter((x) => x !== authUser.id)); refreshWithUI(placeId);
+}
+function renderPeopleChips() {
+  if (!draft) return;
+  $("peopleChips").innerHTML = draft.people.map((id) => { let p = profileCache.get(id) || {}; return '<span class="pChip">' + avatarHTML(p) + esc(p.first_name || "@" + (p.username || "user")) + '<button type="button" data-unpick="' + esc(id) + '" aria-label="Remove">×</button></span>'; }).join("") +
+    '<button type="button" class="pAdd" id="peopleAdd">＋ Add people</button>';
+}
+let pickSel = new Set(), pickPool = [];
+async function openPeoplePicker() {
+  if (!authUser || !draft) return;
+  if (peopleMissing) return uiAlert("Not set up yet", "Adding people needs supabase_v2_8_migration.sql. Run it in Supabase, then try again.");
+  pickSel = new Set(draft.people); $("peoplePick").value = ""; $("peopleList").innerHTML = '<div class="listMsg">Loading…</div>';
+  openLayer("peopleSheet");
+  let { data } = await sb.from("follows").select("follower_id").eq("following_id", authUser.id);
+  let ids = (data || []).map((x) => x.follower_id).filter((id) => !blockedIds.has(id));
+  await cacheProfiles([...ids, ...draft.people]);
+  pickPool = [...new Set([...draft.people, ...ids])].map((id) => profileCache.get(id)).filter(Boolean).sort((a, b) => (a.first_name || a.username).localeCompare(b.first_name || b.username));
+  renderPicker();
+}
+function renderPicker() {
+  let q = $("peoplePick").value.trim().toLowerCase().replace(/^@/, "");
+  let list = pickPool.filter((p) => !q || (p.first_name || "").toLowerCase().includes(q) || (p.username || "").includes(q));
+  $("peopleList").innerHTML = list.length ? list.map((p) => '<button type="button" class="pickRow' + (pickSel.has(p.id) ? " on" : "") + '" data-pick="' + esc(p.id) + '">' + avatarHTML(p) + '<div style="min-width:0"><div class="personName">' + esc(p.first_name || p.username) + '</div><div class="personUser">@' + esc(p.username) + '</div></div><span class="pickTick">✓</span></button>').join("")
+    : '<div class="listMsg">' + (pickPool.length ? "No matches." : "No followers yet. When friends follow you, you can add them here.") + "</div>";
+}
+$("peopleChips").addEventListener("click", (e) => {
+  if (e.target.closest("#peopleAdd")) return openPeoplePicker();
+  let x = e.target.closest("[data-unpick]"); if (x && draft) { draft.people = draft.people.filter((id) => id !== x.dataset.unpick); draft.dirty = true; renderPeopleChips(); }
+});
+$("peopleList").addEventListener("click", (e) => { let b = e.target.closest("[data-pick]"); if (!b) return; let id = b.dataset.pick; pickSel.has(id) ? pickSel.delete(id) : pickSel.add(id); b.classList.toggle("on", pickSel.has(id)); });
+$("peoplePick").oninput = renderPicker;
+$("peopleDone").onclick = () => { if (draft) { draft.people = [...pickSel]; draft.dirty = true; renderPeopleChips(); } closeLayer("peopleSheet"); };
+$("peopleCancel").onclick = $("peopleBackdrop").onclick = () => closeLayer("peopleSheet");
 
 // Friends & profile
 $("peopleSearch").oninput = () => { clearTimeout(window._peopleTimer); window._peopleTimer = setTimeout(searchPeople, 250); };
@@ -2792,31 +3033,89 @@ $("profileSignOut").onclick = async () => {
 $("authClose").onclick = () => closeLayer("authPage");
 $("signInTab").onclick = () => setAuthMode("signin");
 $("signUpTab").onclick = () => setAuthMode("signup");
+async function usernameAvailable(username, email) {
+  let { data, error } = await sb.rpc("pinpoint_username_available", { p_username: username, p_email: email || null });
+  if (!error) return data !== false;
+  // Before supabase_v2_8_migration.sql: fall back to a direct check.
+  let chk = await sb.from("profiles").select("id").eq("username", username).maybeSingle();
+  return !chk.data;
+}
+function friendlyAuthError(err) {
+  let m = String(err?.message || err || "");
+  if (/invalid login credentials/i.test(m)) return "That email and password don’t match. Check them, or reset your password.";
+  if (/database error saving new user/i.test(m)) return "That username may already be taken. Try a different one.";
+  if (/already registered|already been registered/i.test(m)) return "There’s already an account with this email. Sign in, or reset your password.";
+  if (/rate limit|too many|security purposes/i.test(m)) return "Too many attempts. Please wait a minute and try again.";
+  if (/password should be at least/i.test(m)) return "Your password needs at least 6 characters.";
+  return m || "Something went wrong. Please try again.";
+}
+let authBusy = false;
 $("authForm").onsubmit = async (e) => {
-  e.preventDefault(); clearAuthMsg();
-  let email = $("authEmail").value.trim(), password = $("authPassword").value;
-  $("authSubmit").disabled = true; $("authSubmit").textContent = authMode === "signin" ? "Signing in…" : "Creating…";
+  e.preventDefault(); if (authBusy) return; clearAuthMsg();
+  let email = $("authEmail").value.trim(), password = $("authPassword").value, mode = authMode;
+  if (!/^\S+@\S+\.\S+$/.test(email)) return authMsg("Enter your email address.", "err");
+  authBusy = true; $("authSubmit").disabled = true; $("authSubmit").textContent = { signin: "Signing in…", signup: "Creating…", reset: "Sending…" }[mode];
   try {
-    if (authMode === "signup") {
+    if (mode === "reset") {
+      let { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: APP_URL });
+      if (error) throw error;
+      showAuthSent("reset", email);
+    } else if (mode === "signup") {
       let first_name = $("authFirstName").value.trim(), username = $("authUsername").value.trim().toLowerCase().replace(/^@/, "");
       if (!first_name) throw new Error("Enter your first name.");
       if (!/^[a-z0-9_]{3,24}$/.test(username)) throw new Error("Username must be 3–24 characters using letters, numbers or _.");
+      if (password.length < 6) throw new Error("Your password needs at least 6 characters.");
       if (!$("authAgree").checked) throw new Error("Please agree to the Terms and Privacy policy to create an account.");
-      let chk = await sb.from("profiles").select("id").eq("username", username).maybeSingle();
-      if (chk.data) throw new Error("That username is already taken.");
-      let { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: "https://olliesarge2002-rgb.github.io/pinpoint/", data: { first_name, username } } });
+      if (!(await usernameAvailable(username, email))) throw new Error("That username is already taken. Try another.");
+      let { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: APP_URL, data: { first_name, username } } });
       if (error) throw error;
-      if (data.session) { updateAuthUI(data.user); authMsg("Account created and signed in."); closeLayer("authPage"); }
-      else authMsg("Account created. Check your email and tap the verification link, then come back and sign in.");
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new Error("There’s already an account with this email. Sign in, or reset your password.");
+      if (data.session) { updateAuthUI(data.user); closeLayer("authPage"); cloudToast("Welcome to Pinpoint ✓"); }
+      else showAuthSent("signup", email);
     } else {
       let { data, error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) { if (/not confirmed/i.test(error.message || "")) return showAuthSent("unconfirmed", email); throw error; }
       updateAuthUI(data.user); closeLayer("authPage"); cloudToast("Signed in ✓");
     }
-  } catch (err) { authMsg(err?.message || "Something went wrong. Please try again.", "err"); }
-  finally { $("authSubmit").disabled = false; $("authSubmit").textContent = authMode === "signin" ? "Sign in" : "Create account"; }
+  } catch (err) { authMsg(friendlyAuthError(err), "err"); }
+  finally { authBusy = false; $("authSubmit").disabled = false; $("authSubmit").textContent = AUTH_LABEL[authMode]; }
 };
-sb.auth.onAuthStateChange((event, session) => { updateAuthUI(session?.user || null); if (event === "SIGNED_IN" && session?.user) closeLayer("authPage"); });
+$("forgotBtn").onclick = () => { let em = $("authEmail").value; setAuthMode(authMode === "reset" ? "signin" : "reset"); $("authEmail").value = em; };
+$("authSentBack").onclick = () => { let em = authSentState?.email || ""; setAuthMode("signin"); $("authEmail").value = em; };
+$("authResend").onclick = async () => {
+  let st = authSentState; if (!st) return;
+  let b = $("authResend"); b.disabled = true; b.textContent = "Sending…";
+  try {
+    let r = st.kind === "reset" ? await sb.auth.resetPasswordForEmail(st.email, { redirectTo: APP_URL }) : await sb.auth.resend({ type: "signup", email: st.email, options: { emailRedirectTo: APP_URL } });
+    if (r.error) throw r.error;
+    cloudToast("Email sent ✓");
+  } catch (err) { uiAlert("Couldn’t resend", friendlyAuthError(err)); }
+  finally { setTimeout(() => { b.disabled = false; b.textContent = "Resend email"; }, 20000); b.textContent = "Sent ✓"; }
+};
+// New password (after a reset link, or from Profile > Change password)
+function openPasswordSheet(recovery) {
+  $("passwordForm").reset(); $("newPwField").classList.remove("invalid"); $("newPw2Field").classList.remove("invalid");
+  $("passwordIntro").textContent = recovery ? "You’re signed in from your reset link. Choose a new password." : "Choose a new password for your account.";
+  openLayer("passwordSheet"); setTimeout(() => $("newPw").focus(), 350);
+}
+$("passwordForm").onsubmit = async (e) => {
+  e.preventDefault();
+  let a = $("newPw").value, b = $("newPw2").value;
+  $("newPwField").classList.toggle("invalid", a.length < 6); $("newPw2Field").classList.toggle("invalid", a.length >= 6 && a !== b);
+  if (a.length < 6 || a !== b) return;
+  if (!authUser) return uiAlert("Link expired", "Your reset link has expired. Request a new one from the sign-in screen.");
+  $("passwordSave").disabled = true;
+  try { let { error } = await sb.auth.updateUser({ password: a }); if (error) throw error; closeLayer("passwordSheet"); cloudToast("Password updated ✓", 2400); }
+  catch (err) { uiAlert("Couldn’t change password", friendlyAuthError(err)); }
+  finally { $("passwordSave").disabled = false; }
+};
+$("passwordCancel").onclick = $("passwordBackdrop").onclick = () => closeLayer("passwordSheet");
+$("changePwBtn").onclick = () => openPasswordSheet(false);
+sb.auth.onAuthStateChange((event, session) => {
+  updateAuthUI(session?.user || null);
+  if (event === "SIGNED_IN" && session?.user) closeLayer("authPage");
+  if (event === "PASSWORD_RECOVERY" || (recoveryPending && session?.user)) { recoveryPending = false; closeLayer("authPage"); setTimeout(() => openPasswordSheet(true), 300); }
+});
 
 // Start-up
 render(); lookup();
